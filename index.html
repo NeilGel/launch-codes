@@ -27,8 +27,9 @@
   html, body { height: 100%; }
   body {
     margin: 0;
-    height: 100vh;                 /* fallback for older browsers */
-    height: 100svh;                /* the viewport WITH the browser toolbars showing, so the weapons dock always clears Safari's address bar */
+    height: 100vh;                 /* oldest fallback */
+    height: 100svh;                /* modern fallback: the viewport with the toolbars showing */
+    height: var(--vvh, 100svh);    /* JS sets --vvh to the EXACT visible height from visualViewport, so the weapons dock always clears Safari's bottom address bar (svh alone measures it wrong on iOS) */
     overflow: hidden;
     background: var(--space);
     color: var(--text);
@@ -613,6 +614,20 @@
     }
   }
   new ResizeObserver(resize).observe(canvas);
+  // iOS Safari puts its address bar at the BOTTOM and computes `100svh` as if it weren't there, so the
+  // weapons dock ends up hidden behind it. visualViewport.height is the real height of what you can see,
+  // so we pin the page to that exact pixel value — the dock then always sits just above the address bar.
+  function syncViewportHeight() {
+    const vv = window.visualViewport, h = vv ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty("--vvh", Math.round(h) + "px");
+  }
+  if (window.visualViewport) {
+    visualViewport.addEventListener("resize", syncViewportHeight);
+    visualViewport.addEventListener("scroll", syncViewportHeight);
+  }
+  addEventListener("resize", syncViewportHeight);
+  addEventListener("orientationchange", () => setTimeout(syncViewportHeight, 250));
+  syncViewportHeight();
   const radius = () => Math.min(cw, ch) * 0.42 * zoomK;
   // The camera, as plain numbers the per-point projection below can use without allocating.
   let cam = { cl: 1, sl: 0, cp: 1, sp: 0, tx: 0, ty: 0, R: 1 };
