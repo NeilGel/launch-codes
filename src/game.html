@@ -2228,15 +2228,28 @@
     lastPuff.set(key, now);
     parts.push({ kind, x: x + (Math.random() - 0.5) * 4, y, vx: 6 + Math.random() * 6, vy: kind === "steam" ? -14 : -10, t0: now, life: kind === "steam" ? 1800 : 2800, s: 3 + Math.random() * 2 });
   }
+  // A layered, flickering flame: a warm glow, red→orange→yellow tongues that wobble, and the odd rising ember.
   function flame(x, y, size, now, seed) {
-    const g = tctx, hgt = size * (0.9 + 0.3 * Math.sin(now / 80 + seed * 3.1) + Math.random() * 0.15);
-    const grad = g.createLinearGradient(x, y, x, y - hgt);
-    grad.addColorStop(0, "rgba(255,245,190,0.95)"); grad.addColorStop(0.45, "rgba(255,140,40,0.9)"); grad.addColorStop(1, "rgba(255,60,20,0)");
-    g.fillStyle = grad;
-    g.beginPath(); g.moveTo(x - size * 0.4, y);
-    g.quadraticCurveTo(x - size * 0.35, y - hgt * 0.55, x, y - hgt);
-    g.quadraticCurveTo(x + size * 0.35, y - hgt * 0.55, x + size * 0.4, y);
-    g.closePath(); g.fill();
+    const g = tctx;
+    g.save(); g.globalCompositeOperation = "lighter";
+    const gl = g.createRadialGradient(x, y - size * 0.35, 1, x, y - size * 0.35, size * 1.15);
+    gl.addColorStop(0, "rgba(255,150,50,0.32)"); gl.addColorStop(1, "rgba(255,80,20,0)");
+    g.fillStyle = gl; g.beginPath(); g.arc(x, y - size * 0.35, size * 1.15, 0, Math.PI * 2); g.fill();
+    const layers = [[1.0, "255,72,26", 0.55], [0.7, "255,146,44", 0.75], [0.4, "255,222,128", 0.95]];
+    for (let L = 0; L < 3; L++) {
+      const hs = layers[L][0], col = layers[L][1], al = layers[L][2];
+      const flick = 0.82 + 0.32 * Math.sin(now / 70 + seed * 3.1 + L * 2.1) + Math.random() * 0.1;
+      const hgt = size * hs * flick, wob = Math.sin(now / 95 + seed + L) * size * 0.14 * hs, w = size * (0.44 - L * 0.11);
+      const grad = g.createLinearGradient(x, y, x, y - hgt);
+      grad.addColorStop(0, `rgba(${col},${al})`); grad.addColorStop(0.7, `rgba(${col},${al * 0.6})`); grad.addColorStop(1, `rgba(${col},0)`);
+      g.fillStyle = grad;
+      g.beginPath(); g.moveTo(x - w, y);
+      g.quadraticCurveTo(x - w * 0.7 + wob, y - hgt * 0.55, x + wob * 0.6, y - hgt);
+      g.quadraticCurveTo(x + w * 0.7 + wob, y - hgt * 0.55, x + w, y);
+      g.closePath(); g.fill();
+    }
+    if (Math.random() < 0.4) { const ex = x + (Math.random() - 0.5) * size * 0.9, ey = y - size * (0.5 + Math.random() * 0.9); g.fillStyle = "rgba(255,205,110,0.9)"; g.beginPath(); g.arc(ex, ey, size * 0.07 + 0.5, 0, Math.PI * 2); g.fill(); }
+    g.restore();
   }
   function polyAt(pts, d) {
     for (let a = 0; a < pts.length - 1; a++) {
@@ -2845,10 +2858,10 @@
     st.scars.push([ll[0], ll[1], R * 0.8, true]);
     if (st.scars.length > 400) st.scars.shift();
     if (s.type !== "bio") {
-      ignite(c.i, ll, s.owner);
+      ignite(c.i, ll, s.owner, true);                                   // the spot you bombed ALWAYS catches
       // a strike on open ground sets a whole patch alight, not one spot — the bigger the warhead, the wider it spreads
       const more = s.type === "nuke" ? 10 : s.type === "bomber" ? 5 : 3;
-      for (let n = 0; n < more; n++) ignite(c.i, offsetM(ll, Math.random() * Math.PI * 2, R * (0.5 + Math.random() * 0.9)), s.owner);
+      for (let n = 0; n < more; n++) ignite(c.i, offsetM(ll, Math.random() * Math.PI * 2, R * (0.5 + Math.random() * 0.9)), s.owner, true);
     }
     return cityHits;
   }
@@ -2884,17 +2897,18 @@
   }
 
   // ---- Fire: it burns a while, spreads (downwind, and fast through vegetation) and scorches sites it reaches
-  const FIRE = { tick: 700, life: [16000, 30000], max: 150, spread: { veg: 0.5, town: 0.07, bare: 0.04 } };
+  const FIRE = { tick: 700, life: [18000, 32000], max: 120, spread: { veg: 0.58, town: 0.3, bare: 0.22 } };
   const burning = new Map();
   let fireSeq = 0, fireTick = 0;
   const fireOf = i => { if (!burning.has(i)) burning.set(i, { list: [], scars: [] }); return burning.get(i); };
   const fireSize = i => clamp(spanOf(i) * 111320 / 1500, 120, 900);     // metres across one patch of fire
-  function ignite(i, ll, owner) {
+  function ignite(i, ll, owner, force) {
     if (!ll || !d3.geoContains(features[i], ll)) return;
     const st = fireOf(i), r = fireSize(i);
-    if (st.list.length >= FIRE.max || st.list.some(f => metres([f.lon, f.lat], ll) < r * 0.7)) return;
+    if (st.list.length >= FIRE.max) return;
+    if (!force && st.list.some(f => metres([f.lon, f.lat], ll) < r * 0.5)) return;    // a forced bomb-spot always catches
     const ground = groundAt(i, ll);
-    if (ground === "water") return;
+    if (ground === "water" && !force) return;
     st.list.push({ id: ++fireSeq, lon: ll[0], lat: ll[1], r, t0: G.t, owner, veg: ground === "veg", hurt: G.t,
       life: (FIRE.life[0] + Math.random() * (FIRE.life[1] - FIRE.life[0])) * (ground === "veg" ? 1.4 : 1) });
   }
@@ -2907,12 +2921,12 @@
           if (st.scars.length > 400) st.scars.shift();
           return false;
         }
-        if (Math.random() < 0.45) {
+        if (Math.random() < 0.6) {
           const a = Math.random() < 0.6 ? (Math.random() - 0.5) * 1.8 : Math.random() * Math.PI * 2;   // mostly east, with the wind
-          const q = offsetM([f.lon, f.lat], a, f.r * (1.1 + Math.random() * 0.7));
+          const q = offsetM([f.lon, f.lat], a, f.r * (1.0 + Math.random() * 0.6));
           const ground = groundAt(i, q);
-          const contained = c.owner !== NEUTRAL ? 0.2 : 1;                  // a country with an owner fights its fires: firebreaks, water
-          if (ground !== "water" && Math.random() < (FIRE.spread[ground] ?? 0.1) * (f.veg ? 1.3 : 1) * contained) born.push([q, f.owner]);
+          const contained = c.owner !== NEUTRAL ? 0.25 : 1;                 // a country with an owner fights its fires: firebreaks, water
+          if (ground !== "water" && Math.random() < (FIRE.spread[ground] ?? FIRE.spread.bare) * (f.veg ? 1.3 : 1) * contained) born.push([q, f.owner]);
         }
         if (list && G.t - f.hurt > 5000) {
           f.hurt = G.t;
@@ -3660,6 +3674,14 @@
   }
   const OUT = "#13243b";                                  // the friendly dark cartoon outline
   const lw2 = () => Math.max(1.2, 2.1 * fcam.s);
+  // Fill a quad with a top-to-bottom gradient (the trick that turns flat blocks into lit, solid-looking ones).
+  function gradPoly(g, pts, cTop, cBot, line, w2) {
+    let y0 = 1e9, y1 = -1e9; for (const p of pts) { if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
+    const gr = g.createLinearGradient(0, y0, 0, y1 + 0.01); gr.addColorStop(0, cTop); gr.addColorStop(1, cBot);
+    g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath();
+    g.fillStyle = gr; g.fill();
+    if (line) { g.strokeStyle = line; g.lineWidth = w2; g.lineJoin = "round"; g.stroke(); }
+  }
 
   // ---- Drawing primitives (everything is built from these) ----
   function windows(g, bl, br, tr, tl, cols, rows, col) {
@@ -3670,17 +3692,23 @@
     }
   }
   function cuboid(g, gx, gy, w, d, h, color, opts = {}) {
-    const b = (x, y) => isoPt(gx + x, gy + y, opts.z || 0), t = (x, y) => isoPt(gx + x, gy + y, (opts.z || 0) + h);
-    const top = shade(color, 1.18), rgt = shade(color, 0.82), lft = shade(color, 0.62), line = OUT, w2 = lw2();
-    poly(g, [b(0, d), b(w, d), t(w, d), t(0, d)], lft, line, w2);       // +y face (left)
-    poly(g, [b(w, 0), b(w, d), t(w, d), t(w, 0)], rgt, line, w2);       // +x face (right)
+    const z = opts.z || 0;
+    const b = (x, y) => isoPt(gx + x, gy + y, z), t = (x, y) => isoPt(gx + x, gy + y, z + h);
+    const line = OUT, w2 = lw2();
+    const Lf = [b(0, d), b(w, d), t(w, d), t(0, d)];                    // +y face (left, shaded)
+    const Rf = [b(w, 0), b(w, d), t(w, d), t(w, 0)];                    // +x face (right, front-lit)
+    const Tf = [t(0, 0), t(w, 0), t(w, d), t(0, d)];                    // top
+    gradPoly(g, Lf, shade(color, 0.66), shade(color, 0.4), line, w2);   // darker toward the ground = ambient occlusion
+    gradPoly(g, Rf, shade(color, 0.92), shade(color, 0.62), line, w2);
     if (opts.win) {
-      windows(g, b(0, d), b(w, d), t(w, d), t(0, d), Math.max(2, Math.round(w * 2)), Math.max(2, Math.round(h * 1.3)), opts.win);
-      windows(g, b(w, d), b(w, 0), t(w, 0), t(w, d), Math.max(2, Math.round(d * 2)), Math.max(2, Math.round(h * 1.3)), opts.win);
+      windows(g, Lf[0], Lf[1], Lf[2], Lf[3], Math.max(2, Math.round(w * 2)), Math.max(2, Math.round(h * 1.3)), opts.win);
+      windows(g, Rf[0], Rf[1], Rf[3], Rf[2], Math.max(2, Math.round(d * 2)), Math.max(2, Math.round(h * 1.3)), opts.win);
     }
-    poly(g, [t(0, 0), t(w, 0), t(w, d), t(0, d)], top, line, w2);       // top
-    if (opts.roof) { const rc = opts.roof; poly(g, [t(0, 0), t(w, 0), t(w, d), t(0, d)], rc, line, w2); }
-    return isoPt(gx + w / 2, gy + d / 2, (opts.z || 0) + h);
+    if (opts.door) { const bl = Rf[1], br = Rf[0], dl = lerp2(bl, br, 0.32), dr = lerp2(bl, br, 0.68); const up = lerp2(dl, t(w, d), 0.34), up2 = lerp2(dr, t(w, 0), 0.34); poly(g, [dl, dr, up2, up], shade(color, 0.3), null, 0); }
+    gradPoly(g, Tf, shade(color, 1.34), shade(color, 1.06), line, w2);
+    if (opts.roof) poly(g, Tf, opts.roof, line, w2);
+    if (opts.parapet) { const p = 0.12; poly(g, [t(p, p), t(w - p, p), t(w - p, d - p), t(p, d - p)], shade(color, 0.9), line, w2 * 0.8); }   // a raised roof rim
+    return isoPt(gx + w / 2, gy + d / 2, z + h);
   }
   function pyramidRoof(g, gx, gy, w, d, base, peak, color) {
     const apex = isoPt(gx + w / 2, gy + d / 2, base + peak);
@@ -3694,9 +3722,13 @@
     const ring = (zz, rr) => { const p = []; for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2; p.push(isoPt(gx + Math.cos(a) * rr, gy + Math.sin(a) * rr, zz)); } return p; };
     const topR = opts.taper ? rad * opts.taper : rad;
     const bot = ring(z, rad), topp = ring(z + h, topR);
-    // body: front half as a filled band
+    // body: front half as a filled band with a curved highlight so it reads as a round tube
     const band = []; for (let i = 0; i <= seg; i++) band.push(bot[i]); for (let i = seg; i >= 0; i--) band.push(topp[i]);
-    poly(g, band, shade(color, 0.8), null, 0);
+    let bx0 = 1e9, bx1 = -1e9; for (const p of band) { if (p[0] < bx0) bx0 = p[0]; if (p[0] > bx1) bx1 = p[0]; }
+    const cg = g.createLinearGradient(bx0, 0, bx1 + 0.01, 0);
+    cg.addColorStop(0, shade(color, 0.52)); cg.addColorStop(0.42, shade(color, 1.02)); cg.addColorStop(0.6, shade(color, 0.9)); cg.addColorStop(1, shade(color, 0.5));
+    g.beginPath(); g.moveTo(band[0][0], band[0][1]); for (let i = 1; i < band.length; i++) g.lineTo(band[i][0], band[i][1]); g.closePath();
+    g.fillStyle = cg; g.fill();
     // vertical shading seam + outline of the silhouette
     poly(g, [...bot.slice(0, seg + 1)], null, null, 0);
     g.strokeStyle = OUT; g.lineWidth = lw2();
@@ -4074,9 +4106,18 @@
     poly(g, [top[3], top[2], bt[1], bt[0]], shade(gc, 0.5), OUT, lw2());               // slab side (front-left)
     const br = isoPt(G0, -G0, -drop);
     poly(g, [top[1], top[2], bt[1], br], shade(gc, 0.4), OUT, lw2());                  // slab side (front-right)
-    poly(g, top, gc, OUT, lw2());                                                      // grass/concrete top
-    if (sc.ground === "water") { g.save(); g.beginPath(); g.moveTo(top[0][0], top[0][1]); for (const p of top) g.lineTo(p[0], p[1]); g.closePath(); g.clip(); g.strokeStyle = shade(gc, 1.2); g.lineWidth = 1.5; for (let k = -6; k < 8; k++) { g.beginPath(); const yy = top[0][1] + k * 10 + Math.sin(now / 500 + k) * 2; g.moveTo(top[0][0], yy); g.lineTo(top[1][0], yy); g.stroke(); } g.restore(); }
-    else { g.strokeStyle = shade(gc, 0.86); g.lineWidth = 1; for (let t = -G0 + 1; t < G0; t++) { let a = isoPt(t, -G0, 0), b = isoPt(t, G0, 0); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); a = isoPt(-G0, t, 0); b = isoPt(G0, t, 0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); } }
+    const gctr = isoPt(0, 0, 0), rg = g.createRadialGradient(gctr[0], gctr[1] - 10, 6, gctr[0], gctr[1], G0 * fcam.tw * fcam.s * 1.5);
+    rg.addColorStop(0, shade(gc, 1.1)); rg.addColorStop(1, shade(gc, 0.8));                // soft light pooling in the middle
+    g.beginPath(); g.moveTo(top[0][0], top[0][1]); for (const p of top) g.lineTo(p[0], p[1]); g.closePath(); g.fillStyle = rg; g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke();
+    g.save(); g.beginPath(); g.moveTo(top[0][0], top[0][1]); for (const p of top) g.lineTo(p[0], p[1]); g.closePath(); g.clip();
+    if (sc.ground === "water") { g.strokeStyle = shade(gc, 1.25); g.lineWidth = 1.5; for (let k = -6; k < 9; k++) { g.beginPath(); const yy = top[0][1] + k * 9 + Math.sin(now / 500 + k) * 2; g.moveTo(top[0][0], yy); g.lineTo(top[1][0], yy); g.stroke(); } }
+    else {
+      const r = seeded((sc.type || "x").charCodeAt(0) * 91 + 7);
+      for (let k = 0; k < 7; k++) { const pp = isoPt((r() * 2 - 1) * G0 * 0.85, (r() * 2 - 1) * G0 * 0.85, 0), rr = (12 + r() * 22) * fcam.s; g.globalAlpha = 0.1; g.fillStyle = shade(gc, r() < 0.5 ? 0.72 : 1.16); g.beginPath(); g.ellipse(pp[0], pp[1], rr, rr * 0.5, 0, 0, Math.PI * 2); g.fill(); }   // dirt / wear
+      g.globalAlpha = 1; g.strokeStyle = shade(gc, 0.8); g.lineWidth = 1;
+      for (let tt = -G0 + 1; tt < G0; tt++) { let a = isoPt(tt, -G0, 0), b = isoPt(tt, G0, 0); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); a = isoPt(-G0, tt, 0); b = isoPt(G0, tt, 0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+    }
+    g.restore();
     // Everything on the plate — buildings, scattered decor and your attackers — painted back to front.
     const depth = s => s.gx + s.gy + (s.unit ? 0.3 : 0) - (s.dead && !s.collapsing ? 9 : 0);
     const order = [...sc.s, ...(sc.decor || []), ...(sc.attackers || [])].sort((a, b) => depth(a) - depth(b));
@@ -4096,8 +4137,8 @@
     const col = s.hitT && now - s.hitT < 120 ? "#ffffff" : s.color;
     const h = (s.h || 2) * (1 + wob);
     switch (s.shape) {
-      case "tower": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win }); if (s.opts.roof) cuboid(g, s.gx + 0.1, s.gy + 0.1, s.w - 0.2, s.d - 0.2, 0.2, s.opts.roof, { z: h }); break;
-      case "box": case "shed": case "dock": case "launcher": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, roof: s.opts.roof && shade(s.opts.roof, 1) }); if (s.shape === "launcher") { const t = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h); g.strokeStyle = "#2c3330"; g.lineWidth = lw2() * 1.6; for (let q = -1; q <= 1; q += 2) { g.beginPath(); g.moveTo(t[0] + q * 6, t[1]); g.lineTo(t[0] + q * 10, t[1] - 20 * fcam.s); g.stroke(); } } break;
+      case "tower": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, parapet: true }); if (s.opts.roof) cuboid(g, s.gx + 0.1, s.gy + 0.1, s.w - 0.2, s.d - 0.2, 0.2, s.opts.roof, { z: h }); break;
+      case "box": case "shed": case "dock": case "launcher": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, roof: s.opts.roof && shade(s.opts.roof, 1), door: s.shape !== "dock" && h > 1.1, parapet: s.shape === "box" && !s.opts.roof }); if (s.shape === "launcher") { const t = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h); g.strokeStyle = "#2c3330"; g.lineWidth = lw2() * 1.6; for (let q = -1; q <= 1; q += 2) { g.beginPath(); g.moveTo(t[0] + q * 6, t[1]); g.lineTo(t[0] + q * 10, t[1] - 20 * fcam.s); g.stroke(); } } break;
       case "hangar": cuboid(g, s.gx, s.gy, s.w, s.d, h * 0.6, col); { const cz = h * 0.6; const a = isoPt(s.gx, s.gy + s.d / 2, cz), b = isoPt(s.gx + s.w, s.gy + s.d / 2, cz), ap = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, cz + h * 0.7); poly(g, [isoPt(s.gx, s.gy, cz), isoPt(s.gx + s.w, s.gy, cz), isoPt(s.gx + s.w / 2, s.gy, cz + h * 0.7)], shade(col, 1.1), OUT, lw2()); poly(g, [isoPt(s.gx, s.gy, cz), isoPt(s.gx, s.gy + s.d, cz), isoPt(s.gx + s.w / 2, s.gy + s.d, cz + h * 0.7), isoPt(s.gx + s.w / 2, s.gy, cz + h * 0.7)], shade(col, 0.8), OUT, lw2()); } break;
       case "dome": cuboid(g, s.gx - (s.w) / 2 + 0.2, s.gy - (s.d) / 2 + 0.2, (s.w) - 0.4, (s.d) - 0.4, h * 0.5, shade(col, 0.9)); dome(g, s.gx + 0 * s.w, s.gy, (s.w || 1.2) * 0.6, h * 0.5, col); break;
       case "silo": cylinder(g, s.gx, s.gy, s.w, h, col, { cap: shade(col, 0.7), capH: s.w * 1.1 }); break;
