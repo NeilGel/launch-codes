@@ -2902,7 +2902,7 @@
   }
 
   // ---- Fire: it burns a while, spreads (downwind, and fast through vegetation) and scorches sites it reaches
-  const FIRE = { tick: 550, life: [22000, 40000], max: 150, spread: { veg: 0.7, town: 0.5, bare: 0.44 } };
+  const FIRE = { tick: 550, life: [22000, 40000], max: 200, spread: { veg: 0.7, town: 0.5, bare: 0.44 } };
   const burning = new Map();
   let fireSeq = 0, fireTick = 0;
   const fireOf = i => { if (!burning.has(i)) burning.set(i, { list: [], scars: [] }); return burning.get(i); };
@@ -2914,7 +2914,14 @@
   function ignite(i, ll, owner, force) {
     if (!ll || !d3.geoContains(features[i], ll)) return;
     const st = fireOf(i), r = fireSize(i);
-    if (st.list.length >= FIRE.max) return;
+    if (st.list.length >= FIRE.max) {
+      if (!force) return;                          // natural spread just stops once the country is at its fire budget
+      // but a struck spot ALWAYS catches: retire whichever fire is nearest burning out to make room, so a
+      // blaze raging in one corner can never stop you starting a fresh fire somewhere else
+      let worst = 0, wa = -1;
+      for (let k = 0; k < st.list.length; k++) { const age = (G.t - st.list[k].t0) / st.list[k].life; if (age > wa) { wa = age; worst = k; } }
+      st.list.splice(worst, 1);
+    }
     if (!force && st.list.some(f => metres([f.lon, f.lat], ll) < r * 0.5)) return;    // a forced bomb-spot always catches
     const ground = groundAt(i, ll);
     if (ground === "water" && !force) return;
