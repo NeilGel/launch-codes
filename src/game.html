@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Launch Codes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,7 +35,16 @@
     font-size: 15px;
     padding-inline: 16px;
     padding-block: 8px;
+    /* It's a game, not a document: a tap-and-hold should fire, never pop up the phone's copy / look-up bar,
+       and pinching should zoom the globe (its own gesture), never the whole page. */
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+    touch-action: pan-x pan-y;
   }
+  /* Reading matter you might actually want to select stays selectable. */
+  .news, .help, .powers, .sheet p, .sheet li { -webkit-user-select: text; user-select: text; }
   button { font: inherit; color: inherit; cursor: pointer; }
   button:focus-visible { outline: 2px solid var(--holo); outline-offset: 2px; }
 
@@ -129,6 +138,9 @@
   .war-head { display: flex; align-items: center; gap: 7px; padding: 5px 7px; border-radius: 10px; background: #01070ce8; box-shadow: inset 0 0 0 1px var(--edge); min-width: 0; }
   .war-head .btn { min-height: 32px; padding: 0 9px; flex: none; }
   .war-head .btn[aria-pressed="true"] { background: var(--gold); color: #1b1300; box-shadow: inset 0 0 0 2px var(--gold), 0 0 12px #ffd24a66; }
+  .war-head .wstorm { color: var(--gold); font-weight: 700; }
+  .war-head .wstorm[aria-pressed="true"] { color: #1b1300; }
+  @media (max-width: 920px) { .war-head .wstorm .slbl { display: none; } }
   @media (max-width: 920px) { .war-head .wo { display: none; } .war-head .btn { padding: 0 7px; } .war-head .wn { font-size: 14px; } }
   .war-head .wn { font-size: 16px; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .war-head .wo { font-size: 12px; color: var(--muted); white-space: nowrap; margin-right: auto; }
@@ -463,6 +475,11 @@
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const $ = id => document.getElementById(id);
+  // Block iOS Safari's whole-page pinch- and double-tap-zoom (it ignores user-scalable=no): a zoomed page
+  // would slide the top bar off and hide the weapons dock. The globe has its own zoom.
+  for (const ev of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+  let lastTouchEnd = 0;
+  document.addEventListener("touchend", e => { const t = Date.now(); if (t - lastTouchEnd < 320) e.preventDefault(); lastTouchEnd = t; }, { passive: false });
   const RAD = Math.PI / 180;
 
   // =====================================================================
@@ -2562,6 +2579,23 @@
         if (f.t === "factory" && !dark) puff("f" + kk, P[kk][0] + 5 * lw, P[kk][1] - 28 * lw, now, 650, "steam");
       }
     }
+    // A country only falls once EVERY site is gone, so the last survivors must be easy to find: once you're
+    // most of the way there (or only a handful remain) each standing site gets a bobbing gold marker.
+    if (c.owner !== ME) {
+      const standing = order.filter(kk => up(list[kk]));
+      if (standing.length && (wreckedShare(list) > 0.45 || standing.length <= 4)) {
+        const pulse = 0.5 + 0.5 * Math.sin(now / 280);
+        for (const kk of standing) {
+          const [sx, sy] = toScreen(...P[kk]);
+          if (sx < -S || sx > tw + S || sy < -S || sy > th + S) continue;
+          g.strokeStyle = `rgba(255,210,74,${0.45 + pulse * 0.45})`; g.lineWidth = 2.4 * zs;
+          g.beginPath(); g.ellipse(sx, sy, S * (0.5 + pulse * 0.13), S * (0.28 + pulse * 0.07), 0, 0, Math.PI * 2); g.stroke();
+          const ay = sy - S * (0.9 + pulse * 0.14);
+          g.fillStyle = "#ffd24a"; g.beginPath(); g.moveTo(sx - 7 * zs, ay); g.lineTo(sx + 7 * zs, ay); g.lineTo(sx, ay + 9 * zs); g.closePath(); g.fill();
+          g.strokeStyle = "#1b1300"; g.lineWidth = 1; g.stroke();
+        }
+      }
+    }
     // The train runs while the station stands; lose the station and it derails and burns
     if (net.rail.length > 1 && !sat) {
       const pts = net.rail.map(kk => toScreen(...P[kk]));
@@ -2810,8 +2844,9 @@
     if (st.scars.length > 400) st.scars.shift();
     if (s.type !== "bio") {
       ignite(c.i, ll, s.owner);
-      const more = s.type === "nuke" ? 8 : s.type === "bomber" ? 3 : 0;
-      for (let n = 0; n < more; n++) ignite(c.i, offsetM(ll, Math.random() * Math.PI * 2, R * 0.7), s.owner);
+      // a strike on open ground sets a whole patch alight, not one spot — the bigger the warhead, the wider it spreads
+      const more = s.type === "nuke" ? 10 : s.type === "bomber" ? 5 : 3;
+      for (let n = 0; n < more; n++) ignite(c.i, offsetM(ll, Math.random() * Math.PI * 2, R * (0.5 + Math.random() * 0.9)), s.owner);
     }
     return cityHits;
   }
@@ -3296,7 +3331,7 @@
     if (!STRIKES[ui.mode] || ui.mode === "doom") { if (G.empires[ME].stock.missile > 0) setMode("missile"); }
     if (first) news(`War with ${C[i].name}: intelligence maps ${G.fac[i].length} sites`, ME, "big");
     if (C[i].owner === ME) toast(`${C[i].name} is yours. Watch its engineers rebuild it.`, "good");
-    else toast("Tap a site, or any spot on the ground, to strike it. + / − or double-click to zoom.");
+    else toast("Tap a site to strike it — or tap ▣ STORM (top), then a facility, to blow it apart up close.");
     renderAll();
   }
   // Forests and rivers (a river runs under every bridge), laid out the same way each time.
@@ -3343,13 +3378,19 @@
   function warTap(x, y) {
     if (!G || G.phase !== "play" || G.over || !ui.war) return;
     if (ui.paused) return setPaused(false);
-    const i = ui.war.i, kk = siteAt(x, y), spot = kk == null ? groundPoint(x, y) : null;
+    const i = ui.war.i, kk = siteAt(x, y);
+    let spot = kk == null ? groundPoint(x, y) : null;
     if (ui.stormPick) {                                         // storming: this tap picks the facility to assault up close
       if (kk == null) return toast("Tap a facility to storm it.", "bad");
       return enterFacility(i, kk);
     }
     if (C[i].owner === ME) return toast(`${C[i].name} is yours: its engineers are rebuilding it.`, "good");
-    if (spot && !d3.geoContains(features[i], spot)) return toast(`Aim inside ${C[i].name}.`, "bad");
+    if (spot && !d3.geoContains(features[i], spot)) {           // a near-miss on the coast snaps to the nearest ground inside
+      const ctr = C[i].center; let inside = null;
+      for (let t = 0.1; t <= 1; t += 0.1) { const q = [spot[0] + (ctr[0] - spot[0]) * t, spot[1] + (ctr[1] - spot[1]) * t]; if (d3.geoContains(features[i], q)) { inside = q; break; } }
+      if (!inside) return toast(`Aim at ${C[i].name}.`, "bad");
+      spot = inside;
+    }
     if (ui.mode === "army") return deployTroops(i);
     if (!STRIKES[ui.mode] || ui.mode === "doom") return toast("Pick a weapon below, then tap a site or any spot to strike it.", "bad");
     fireAt(i, kk, spot);           // the camera stays where you left it
@@ -3446,7 +3487,7 @@
         ${inc ? `<span class="walarm">▲ ${inc} INCOMING</span>` : ""}
         <button class="btn" data-w="zin" aria-label="Zoom in">+</button><button class="btn" data-w="zout" aria-label="Zoom out">−</button>
         <button class="btn" data-w="sat" title="Satellite imagery or drawn map">${satActive() ? "MAP" : "SAT"}</button>
-        <button class="btn" data-w="storm" aria-pressed="${!!ui.stormPick}" title="Storm a facility up close, then tap it">▣</button>
+        <button class="btn wstorm" data-w="storm" aria-pressed="${!!ui.stormPick}" title="Storm a facility up close in an arcade view — then tap a facility">▣<span class="slbl"> STORM</span></button>
         <button class="btn" data-w="fit" aria-label="Fit the country to the view">⤢</button>
       </div>
       <div class="war-foot${ui.warOpen ? " open" : ""}">
@@ -3464,7 +3505,7 @@
           ? (() => { const st = burning.get(c.i), fires = st ? st.list.length : 0, scars = st ? st.scars.length : 0;
               return recovered.has(c.i) ? `${c.name} has fully recovered. <b>‹ Globe</b> to pick your next war.`
                 : `${c.name} is yours. Engineers are rebuilding${fires ? `, fire crews are fighting ${fires} fire${fires > 1 ? "s" : ""}` : ""}${scars ? `, and ${scars} burnt area${scars > 1 ? "s are" : " is"} being cleared` : ""}.`; })()
-          : `Strength <b>${c.pop}M</b> · tap a site or any spot to strike it, hold for rapid fire${canGround(c.i) ? ", or pick TROOPS and tap the ground to send a battlegroup across the border" : " · no land border, so ground forces can't reach it"}`}</p>
+          : `Strength <b>${c.pop}M</b> · tap a site to strike it (hold for rapid fire), or tap <b>▣ STORM</b> then a facility to blow it apart up close.${canGround(c.i) ? " Pick TROOPS to cross the border on foot." : ""}`}</p>
         </div>
       </div>`;
     el.hidden = false;
@@ -3678,13 +3719,15 @@
     g.fillStyle = grd; g.fillRect(c[0] - 200, c[1] - 200, 400, 260); g.restore();
     poly(g, pts, null, OUT, lw2());
   }
-  function dish(g, gx, gy, rad, h, color) {
+  function dish(g, gx, gy, rad, h, color, now) {
     cuboid(g, gx - 0.3, gy - 0.3, 0.6, 0.6, h, "#8b96a3");                          // pedestal
-    const c = isoPt(gx, gy, h);
-    g.save(); g.translate(c[0], c[1]); g.rotate(-0.5); g.scale(1, 0.5);
-    g.beginPath(); g.arc(0, 0, rad * fcam.tw * fcam.s, 0, Math.PI * 2);
-    g.fillStyle = shade(color, 1.1); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke();
-    g.beginPath(); g.arc(0, 0, rad * fcam.tw * fcam.s * 0.28, 0, Math.PI * 2); g.fillStyle = shade(color, 0.7); g.fill(); g.stroke();
+    const c = isoPt(gx, gy, h + 0.1), R = rad * fcam.tw * fcam.s;
+    const spin = now ? now / 1500 : -0.5;                                           // the dish sweeps round
+    g.save(); g.translate(c[0], c[1]); g.rotate(spin); g.scale(1, 0.5);
+    g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2);
+    g.fillStyle = shade(color, 1.12); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke();
+    g.beginPath(); g.arc(0, 0, R * 0.3, 0, Math.PI * 2); g.fillStyle = shade(color, 0.68); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(R * 0.9, 0); g.strokeStyle = shade(color, 0.5); g.lineWidth = lw2() * 1.4; g.stroke();   // feed arm
     g.restore();
   }
   function turbine(g, gx, gy, rad, color) {                                          // cooling tower (waisted)
@@ -3701,15 +3744,19 @@
     g.moveTo(bot[seg / 2][0], bot[seg / 2][1]); g.lineTo(mid[seg / 2][0], mid[seg / 2][1]); g.lineTo(topp[seg / 2][0], topp[seg / 2][1]); g.stroke();
     poly(g, topp, shade(color, 0.5), OUT, lw2());
   }
-  function rubblePile(g, gx, gy, w, d) {
-    const c = isoPt(gx + w / 2, gy + d / 2, 0);
-    for (let k = 0; k < 7; k++) {
-      const a = k / 7 * Math.PI * 2, rr = (0.2 + (k % 3) * 0.12) * Math.min(w, d) + 0.2;
+  function rubblePile(g, gx, gy, w, d, now, since) {
+    g.globalAlpha = 0.55; poly(g, [isoPt(gx, gy, 0), isoPt(gx + w, gy, 0), isoPt(gx + w, gy + d, 0), isoPt(gx, gy + d, 0)], "#2f241d", null, 0); g.globalAlpha = 1;   // scorch
+    for (let k = 0; k < 8; k++) {
+      const a = k / 8 * Math.PI * 2, rr = (0.18 + (k % 3) * 0.13) * Math.min(w, d) + 0.18;
       const p = isoPt(gx + w / 2 + Math.cos(a) * rr, gy + d / 2 + Math.sin(a) * rr, 0);
       const s = (3 + (k % 3) * 2) * fcam.s;
-      poly(g, [[p[0], p[1] - s], [p[0] + s, p[1]], [p[0], p[1] + s * 0.6], [p[0] - s, p[1]]], k % 2 ? "#8b9098" : "#767b83", OUT, lw2());
+      poly(g, [[p[0], p[1] - s], [p[0] + s, p[1]], [p[0], p[1] + s * 0.6], [p[0] - s, p[1]]], k % 2 ? "#8b9098" : "#6f747c", OUT, lw2());
     }
-    g.globalAlpha = 0.5; poly(g, [isoPt(gx, gy, 0), isoPt(gx + w, gy, 0), isoPt(gx + w, gy + d, 0), isoPt(gx, gy + d, 0)], "#3a2b22", null, 0); g.globalAlpha = 1;
+    if (now && since && now - since < 4200) {                 // lingering embers and smoke just after it fell
+      const t = (now - since) / 4200, c = isoPt(gx + w / 2, gy + d / 2, 0.08);
+      if (Math.random() < (1 - t) * 0.6) facFlame(g, c[0], c[1], 0.55 * (1 - t), now, gx * 3);
+      smoke(g, gx + w / 2, gy + d / 2, 0.15, now, (gx * 9) | 0);
+    }
   }
   function lattice(g, gx, gy, w, d, h, color) {                                      // an open gantry / pylon lattice
     const c = [[0, 0], [w, 0], [w, d], [0, d]];
@@ -3788,6 +3835,13 @@
     const total = scene.s.length, standing = Math.max(1, Math.ceil(total * site.hp / site.max));
     for (let n = standing; n < total; n++) scene.s[n].dead = true;
     scene.worth = site.max / total;
+    scene.decor = makeDecor(scene, seeded(i * 17 + k * 101 + 3));
+    // Your assault force, lined up along the near edge facing the facility.
+    scene.attackers = [
+      { unit: "tank", gx: -2.3, gy: 3.0, col: "#5c6b45" },
+      { unit: "arty", gx: -0.1, gy: 3.35, col: "#4c5840" },
+      { unit: "tank", gx: 2.1, gy: 3.0, col: "#5c6b45" },
+    ];
     return scene;
   }
 
@@ -3843,22 +3897,24 @@
   function facilityTap(x, y) {
     const F = ui.facility; if (!F || F.done) return;
     const s = structAt(x, y);
-    if (!s) return;
-    const from = [x + (Math.random() - 0.5) * 60, -30];
-    F.shells.push({ from, to: [x, y], t0: performance.now(), dur: 430, s });
+    if (!s || s.collapsing || s.dead) return;
+    // the nearest of your guns swings round and fires the shell
+    let best = F.scene.attackers[0], bd = 1e9;
+    for (const a of F.scene.attackers) { const t = attackerTurret(a), dd = Math.hypot(t[0] - x, t[1] - y); if (dd < bd) { bd = dd; best = a; } }
+    attackerFire(F, best, s);
   }
   function hitStruct(F, s) {
-    const c = isoPt(s.gx + (s.w || 1) / 2, s.gy + (s.d || 1) / 2, (s.h || 2) * 0.55);
-    s.hp--; s.hitT = performance.now();
-    boomFac(F, c[0], c[1], s.hp <= 0 ? 1 : 0.5);
-    F.shake = Math.min(16, F.shake + (s.hp <= 0 ? 11 : 5));
-    if (s.hp <= 0) { s.dead = true; syncFacDamage(F); }
+    if (s.dead || s.collapsing) return;
+    const c = targetScreen(s);
+    s.hp--; s.hitT = performance.now(); s.burning = performance.now();
+    if (s.hp <= 0) { s.collapsing = performance.now(); boomFac(F, c[0], c[1], 1); F.shake = Math.min(18, F.shake + 12); syncFacDamage(F); }
+    else { boomFac(F, c[0], c[1], 0.4); F.shake = Math.min(14, F.shake + 5); }
     renderFacUi();
   }
   function syncFacDamage(F) {
     const c = C[F.i], site = G.fac[F.i] && G.fac[F.i][F.k];
     if (!site) return;
-    const sc = F.scene, standing = sc.s.filter(s => !s.dead).length, total = sc.s.length;
+    const sc = F.scene, total = sc.s.length, standing = sc.s.filter(s => !s.dead && !s.collapsing).length;
     const desired = Math.round(site.max * standing / total);
     if (site.hp > desired) woundSite(c, site, site.hp - desired, ME);       // feed the damage back into the war
     if (standing === 0 && !F.done) {
@@ -3876,6 +3932,123 @@
   }
 
   // ---- Draw the whole scene each frame ----
+  // ---- Extra detail: soft shadows, roof clutter, animated bits, and scattered ground decor ----
+  function softShadow(g, gx, gy, w, d) {
+    const c = isoPt(gx + (w || 1) / 2, gy + (d || 1) / 2, 0);
+    const rw = Math.max(w || 1, d || 1) * fcam.tw * fcam.s * 0.66, rh = rw * 0.5;
+    g.save(); g.globalAlpha = 0.15; g.fillStyle = "#07121d";
+    g.beginPath(); g.ellipse(c[0], c[1] + 3, rw, rh, 0, 0, Math.PI * 2); g.fill(); g.restore();
+  }
+  function footing(g, gx, gy, w, d, col) {                   // a little plinth so a building sits on the ground, not floats
+    cuboid(g, gx - 0.08, gy - 0.08, w + 0.16, d + 0.16, 0.12, shade(col, 0.55));
+  }
+  function beacon(g, x, y, now, seed) {                      // blinking aircraft-warning light
+    if ((Math.floor(now / 520) + (seed | 0)) % 2) return;
+    g.save(); g.fillStyle = "#ff3b4e"; g.beginPath(); g.arc(x, y, 2.6 * fcam.s, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = 0.45; g.beginPath(); g.arc(x, y, 5.5 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
+  }
+  function roofKit(g, gx, gy, w, d, z, now, seed) {          // vents, a mast and a beacon on a rooftop
+    const r = seeded(seed | 0);
+    const n = 1 + Math.floor(r() * 2);
+    for (let k = 0; k < n; k++) cuboid(g, gx + 0.2 + r() * Math.max(0.1, w - 0.6), gy + 0.2 + r() * Math.max(0.1, d - 0.6), 0.3, 0.3, 0.16, "#9aa2ab", { z });
+    const ax = gx + w * 0.78, ay = gy + d * 0.22, base = isoPt(ax, ay, z), tipZ = z + 0.8 + r() * 0.5, tip = isoPt(ax, ay, tipZ);
+    g.strokeStyle = "#6b7681"; g.lineWidth = lw2(); g.beginPath(); g.moveTo(base[0], base[1]); g.lineTo(tip[0], tip[1]); g.stroke();
+    beacon(g, tip[0], tip[1], now, seed);
+  }
+  function smoke(g, gx, gy, z, now, seed) {                  // rising puffs from a chimney / cooling tower
+    const base = isoPt(gx, gy, z);
+    for (let k = 0; k < 4; k++) { const t = ((now / 900 + k * 0.25 + (seed % 7) / 7) % 1), y = base[1] - t * 44 * fcam.s, s = (3 + t * 11) * fcam.s;
+      g.fillStyle = `rgba(228,233,238,${(1 - t) * 0.5})`; g.beginPath(); g.arc(base[0] + Math.sin(t * 4 + k) * 4 * fcam.s, y, s, 0, Math.PI * 2); g.fill(); }
+  }
+  function drawProp(g, s, now) {
+    const gx = s.gx, gy = s.gy, c0 = isoPt(gx, gy, 0);
+    softShadow(g, gx - 0.25, gy - 0.25, 0.6, 0.6);
+    switch (s.k) {
+      case "tree": { const tr = isoPt(gx, gy, 0.34); g.strokeStyle = "#6b4a2e"; g.lineWidth = lw2() * 1.7; g.beginPath(); g.moveTo(c0[0], c0[1]); g.lineTo(tr[0], tr[1]); g.stroke();
+        const cz = isoPt(gx, gy, 0.55 + s.s * 0.18), rr = (9 + s.s * 4) * fcam.s; g.fillStyle = s.c; g.beginPath(); g.arc(cz[0], cz[1] - rr * 0.5, rr, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke();
+        g.fillStyle = shade(s.c, 1.2); g.beginPath(); g.arc(cz[0] - rr * 0.3, cz[1] - rr * 0.85, rr * 0.48, 0, Math.PI * 2); g.fill(); } break;
+      case "bush": { const cz = isoPt(gx, gy, 0.16), rr = 7 * fcam.s; g.fillStyle = s.c; g.beginPath(); g.arc(cz[0], cz[1] - rr * 0.4, rr, 0, Math.PI * 2); g.arc(cz[0] + rr * 0.7, cz[1] - rr * 0.2, rr * 0.7, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke(); } break;
+      case "lamp": { const top = isoPt(gx, gy, 1.15); g.strokeStyle = "#8a929b"; g.lineWidth = lw2() * 1.3; g.beginPath(); g.moveTo(c0[0], c0[1]); g.lineTo(top[0], top[1]); g.stroke();
+        g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,224,138,0.5)"; g.beginPath(); g.arc(top[0], top[1] + 2, 7 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
+        g.fillStyle = "#ffe08a"; g.beginPath(); g.arc(top[0], top[1], 3 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = 1; g.stroke(); } break;
+      case "car": { cuboid(g, gx, gy, 0.72, 0.42, 0.26, s.c); cuboid(g, gx + 0.18, gy + 0.06, 0.34, 0.3, 0.2, shade(s.c, 1.25), { z: 0.26, win: "#bfe6ff" }); } break;
+      case "crate": cuboid(g, gx, gy, 0.44, 0.44, 0.42, s.c); break;
+      case "barrel": cylinder(g, gx, gy, 0.2, 0.5, s.c); break;
+      case "sandbag": for (let q = 0; q < 3; q++) cuboid(g, gx + q * 0.16, gy, 0.34, 0.34, 0.15, "#c9b482", { z: q * 0.14 }); break;
+      case "rock": { const cz = isoPt(gx, gy, 0.12); g.fillStyle = s.c; g.beginPath(); g.moveTo(cz[0] - 8 * fcam.s, cz[1]); g.lineTo(cz[0] - 2 * fcam.s, cz[1] - 9 * fcam.s); g.lineTo(cz[0] + 6 * fcam.s, cz[1] - 6 * fcam.s); g.lineTo(cz[0] + 9 * fcam.s, cz[1] + 2 * fcam.s); g.closePath(); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke(); } break;
+      case "buoy": { const cz = isoPt(gx, gy, 0.3); g.strokeStyle = "#20303f"; g.lineWidth = lw2(); g.beginPath(); g.moveTo(c0[0], c0[1]); g.lineTo(cz[0], cz[1]); g.stroke(); g.fillStyle = (Math.floor(now / 600) % 2) ? "#ff5a3c" : "#ffd24a"; g.beginPath(); g.arc(cz[0], cz[1], 4 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.stroke(); } break;
+    }
+  }
+  const DECOR_KINDS = {
+    grass: ["tree", "tree", "tree", "bush", "lamp"], concrete: ["lamp", "crate", "sandbag", "barrel", "bush"],
+    tarmac: ["lamp", "car", "crate", "lamp"], sand: ["rock", "sandbag", "crate", "barrel"], water: ["buoy", "buoy"],
+  };
+  const TREE_COLS = ["#3f9b46", "#49a85a", "#5bb268", "#36913f"], CAR_COLS = ["#c94b4b", "#3f6ea0", "#e0a63a", "#5b6b7a", "#e8e8ea"];
+  function makeDecor(scene, rng) {
+    const kinds = DECOR_KINDS[scene.ground] || ["bush", "lamp"], out = [], R = 3.05, want = scene.ground === "water" ? 5 : 12;
+    const occupied = (x, y) => scene.s.some(s => Math.abs(s.gx + (s.w || 1) / 2 - x) < (s.w || 1) / 2 + 0.55 && Math.abs(s.gy + (s.d || 1) / 2 - y) < (s.d || 1) / 2 + 0.55);
+    for (let t = 0; out.length < want && t < 160; t++) {
+      const x = (rng() * 2 - 1) * R, y = (rng() * 2 - 1) * R;
+      if (occupied(x, y) || out.some(o => Math.abs(o.gx - x) < 0.75 && Math.abs(o.gy - y) < 0.75)) continue;
+      const k = kinds[Math.floor(rng() * kinds.length)];
+      out.push({ prop: true, k, gx: x, gy: y, s: Math.floor(rng() * 3), c: k === "tree" ? TREE_COLS[Math.floor(rng() * TREE_COLS.length)] : k === "car" ? CAR_COLS[Math.floor(rng() * CAR_COLS.length)] : k === "bush" ? "#49a052" : k === "rock" ? "#9a978f" : k === "crate" ? "#b9924e" : k === "barrel" ? "#5b7f4a" : "#c94b4b" });
+    }
+    return out;
+  }
+
+  // ---- Your assault force: tanks and artillery lined up at the near edge that actually fire the shells ----
+  const centreScreen = () => isoPt(0, 0, 1);
+  const targetScreen = s => isoPt(s.gx + (s.w || 1) / 2, s.gy + (s.d || 1) / 2, (s.h || 2) * 0.55);
+  function attackerTurret(a) { return isoPt(a.gx + (a.unit === "arty" ? 0.5 : 0.42), a.gy + 0.28, (a.unit === "arty" ? 0.34 : 0.3) + 0.2); }
+  function attackerFire(F, a, s) {
+    const tp = targetScreen(s), tur = attackerTurret(a);
+    a.angle = Math.atan2(tp[1] - tur[1], tp[0] - tur[0]); a.fireT = performance.now();
+    const len = (a.unit === "arty" ? 30 : 22) * fcam.s, tip = [tur[0] + Math.cos(a.angle) * len, tur[1] + Math.sin(a.angle) * len];
+    F.shells.push({ from: tip.slice(), to: tp, t0: performance.now(), dur: a.unit === "arty" ? 560 : 380, arc: a.unit === "arty" ? 130 : 70, s });
+    F.fx.push({ kind: "flash", x: tip[0], y: tip[1], t0: performance.now(), dur: 130, R: 16 });
+  }
+  function drawAttacker(g, a, now) {
+    const recoil = a.fireT && now - a.fireT < 240 ? 1 - (now - a.fireT) / 240 : 0;
+    const tur = attackerTurret(a), ctr = centreScreen();
+    const ang = a.angle != null ? a.angle : Math.atan2(ctr[1] - tur[1], ctr[0] - tur[0]);
+    softShadow(g, a.gx - 0.05, a.gy, a.unit === "arty" ? 1.0 : 0.85, 0.6);
+    const bodyH = a.unit === "arty" ? 0.32 : 0.28, hullW = a.unit === "arty" ? 0.95 : 0.82;
+    // caterpillar tracks
+    cuboid(g, a.gx, a.gy - 0.04, hullW, 0.16, bodyH * 0.7, "#20251c");
+    cuboid(g, a.gx, a.gy + 0.42, hullW, 0.16, bodyH * 0.7, "#20251c");
+    cuboid(g, a.gx + 0.05, a.gy + 0.06, hullW - 0.1, 0.42, bodyH, a.col);                 // hull
+    cuboid(g, a.gx + 0.24, a.gy + 0.14, a.unit === "arty" ? 0.42 : 0.4, 0.32, bodyH * 0.85, shade(a.col, 1.12), { z: bodyH });   // turret
+    const bx = tur[0] - Math.cos(ang) * recoil * 6, by = tur[1] - Math.sin(ang) * recoil * 6;
+    const len = (a.unit === "arty" ? 30 : 22) * fcam.s, tip = [bx + Math.cos(ang) * len, by + Math.sin(ang) * len];
+    g.strokeStyle = "#2b312a"; g.lineWidth = lw2() * (a.unit === "arty" ? 2.8 : 2.1); g.lineCap = "round";
+    g.beginPath(); g.moveTo(bx, by); g.lineTo(tip[0], tip[1]); g.stroke(); g.lineCap = "butt";
+    if (recoil > 0.35) { g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = `rgba(255,220,130,${recoil})`; g.beginPath(); g.arc(tip[0], tip[1], 11 * fcam.s * recoil, 0, Math.PI * 2); g.fill(); g.restore(); }
+  }
+  // ---- Fire and elegant collapse ----
+  function facFlame(g, x, y, scl, now, seed) {
+    g.save(); g.globalCompositeOperation = "lighter";
+    for (let k = 0; k < 3; k++) {
+      const ph = now / 110 + k * 1.9 + seed, fx = x + Math.sin(ph) * 3 * scl, h = (11 + Math.sin(ph * 1.4) * 5) * scl * fcam.s, w = 5.5 * scl * fcam.s;
+      g.fillStyle = k === 0 ? "rgba(255,214,74,0.95)" : k === 1 ? "rgba(255,150,60,0.9)" : "rgba(255,84,44,0.85)";
+      g.beginPath(); g.moveTo(fx, y); g.quadraticCurveTo(fx - w, y - h * 0.5, fx, y - h); g.quadraticCurveTo(fx + w, y - h * 0.5, fx, y); g.fill();
+    }
+    g.restore();
+  }
+  function collapseDraw(g, s, now) {                          // a building sinking into its own dust
+    const t = clamp((now - s.collapsing) / 780, 0, 1), sink = t * t;
+    const w = s.w || 1, d = s.d || 1, h = Math.max(0.05, (s.h || 2) * (1 - sink * 0.92));
+    if (s.shape === "silo" || s.shape === "cyl" || s.shape === "chimney" || s.shape === "rocket") cylinder(g, s.gx, s.gy, s.w, h, shade(s.color, 0.7 + 0.3 * (1 - t)));
+    else cuboid(g, s.gx, s.gy, w, d, h, shade(s.color, 0.55 + 0.35 * (1 - t)));
+    const base = isoPt(s.gx + w / 2, s.gy + d / 2, h);
+    facFlame(g, base[0], base[1], 1 + t, now, s.gx * 3);
+    // billowing dust
+    g.save();
+    for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2, rr = (10 + t * 34) * fcam.s, x = base[0] + Math.cos(a) * rr, y = isoPt(s.gx + w / 2, s.gy + d / 2, 0)[1] - t * 10 * fcam.s + Math.sin(a) * rr * 0.5;
+      g.fillStyle = `rgba(150,142,132,${(1 - t) * 0.5})`; g.beginPath(); g.arc(x, y, (6 + t * 9) * fcam.s, 0, Math.PI * 2); g.fill(); }
+    g.restore();
+    if (t >= 1) s.dead = true;
+  }
+
   function drawFacility(now) {
     const F = ui.facility; if (!F || !fw2) return;
     const g = fx2;
@@ -3902,17 +4075,22 @@
     poly(g, top, gc, OUT, lw2());                                                      // grass/concrete top
     if (sc.ground === "water") { g.save(); g.beginPath(); g.moveTo(top[0][0], top[0][1]); for (const p of top) g.lineTo(p[0], p[1]); g.closePath(); g.clip(); g.strokeStyle = shade(gc, 1.2); g.lineWidth = 1.5; for (let k = -6; k < 8; k++) { g.beginPath(); const yy = top[0][1] + k * 10 + Math.sin(now / 500 + k) * 2; g.moveTo(top[0][0], yy); g.lineTo(top[1][0], yy); g.stroke(); } g.restore(); }
     else { g.strokeStyle = shade(gc, 0.86); g.lineWidth = 1; for (let t = -G0 + 1; t < G0; t++) { let a = isoPt(t, -G0, 0), b = isoPt(t, G0, 0); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); a = isoPt(-G0, t, 0); b = isoPt(G0, t, 0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); } }
-    // structures, back-to-front
-    const order = [...sc.s].sort((a, b) => (a.gx + a.gy + (a.dead ? -9 : 0)) - (b.gx + b.gy + (b.dead ? -9 : 0)));
-    for (const s of order) drawStruct(g, s, now);
+    // Everything on the plate — buildings, scattered decor and your attackers — painted back to front.
+    const depth = s => s.gx + s.gy + (s.unit ? 0.3 : 0) - (s.dead && !s.collapsing ? 9 : 0);
+    const order = [...sc.s, ...(sc.decor || []), ...(sc.attackers || [])].sort((a, b) => depth(a) - depth(b));
+    for (const s of order) s.unit ? drawAttacker(g, s, now) : s.prop ? drawProp(g, s, now) : drawStruct(g, s, now);
     // effects
     drawFacFx(g, F, now);
     g.restore();
   }
 
   function drawStruct(g, s, now) {
+    if (s.dead) return rubblePile(g, s.gx, s.gy, s.w || 1, s.d || 1, now, s.collapsing);
+    if (s.collapsing) return collapseDraw(g, s, now);
+    const flat = s.shape === "runway";
+    if (!flat) softShadow(g, s.gx, s.gy, s.w || 1, s.d || 1);
+    if (["tower", "box", "shed", "dome", "hangar"].includes(s.shape)) footing(g, s.gx, s.gy, s.w, s.d, s.color);
     const wob = s.hitT && now - s.hitT < 160 ? Math.sin((now - s.hitT) / 20) * 0.06 * (1 - (now - s.hitT) / 160) : 0;
-    if (s.dead) return rubblePile(g, s.gx, s.gy, s.w || 1, s.d || 1);
     const col = s.hitT && now - s.hitT < 120 ? "#ffffff" : s.color;
     const h = (s.h || 2) * (1 + wob);
     switch (s.shape) {
@@ -3923,7 +4101,7 @@
       case "silo": cylinder(g, s.gx, s.gy, s.w, h, col, { cap: shade(col, 0.7), capH: s.w * 1.1 }); break;
       case "cyl": case "chimney": case "rocket": cylinder(g, s.gx, s.gy, s.w, h, col, { taper: s.shape === "rocket" ? 0.7 : 1, cap: s.shape === "rocket" ? "#d64b3a" : null, capH: s.w }); break;
       case "cool": turbine(g, s.gx, s.gy, s.w, col); break;
-      case "dish": dish(g, s.gx, s.gy, s.w, s.d, col); break;
+      case "dish": dish(g, s.gx, s.gy, s.w, s.d, col, now); break;
       case "gantry": lattice(g, s.gx, s.gy, s.w, s.d, h, col); break;
       case "pylon": lattice(g, s.gx, s.gy, s.w, s.d, h, col); { const t = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h); g.strokeStyle = col; g.beginPath(); g.moveTo(t[0] - 30, t[1] + 6); g.lineTo(t[0], t[1]); g.lineTo(t[0] + 30, t[1] + 6); g.stroke(); } break;
       case "vehicle": cuboid(g, s.gx, s.gy, s.w, s.d, h, col); cuboid(g, s.gx + 0.2, s.gy + 0.15, s.w - 0.5, s.d - 0.4, h * 0.9, shade(col, 0.9), { z: h }); { const t = isoPt(s.gx + s.w, s.gy + s.d / 2, h + h * 0.5); g.strokeStyle = "#2b312a"; g.lineWidth = lw2() * 1.8; g.beginPath(); g.moveTo(t[0] - 10, t[1]); g.lineTo(t[0] + 14, t[1] - 3); g.stroke(); } break;
@@ -3935,6 +4113,12 @@
       case "pole": { const a = isoPt(s.gx, s.gy, 0), b = isoPt(s.gx, s.gy, s.h); g.strokeStyle = col; g.lineWidth = lw2() * 1.4; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); if (s.opts.flag) { poly(g, [b, [b[0] + 22 * fcam.s, b[1] + 4], [b[0], b[1] + 12 * fcam.s]], "#ff3b5c", OUT, lw2()); } if (s.opts.signal) { g.fillStyle = (Math.floor(now / 700) % 2) ? "#4dffb0" : "#ff3b5c"; g.beginPath(); g.arc(b[0], b[1], 4 * fcam.s, 0, Math.PI * 2); g.fill(); } } break;
       default: cuboid(g, s.gx, s.gy, s.w || 1, s.d || 1, h, col, { win: s.opts.win });
     }
+    // rooftop clutter, warning beacons, smoke and fire
+    if (s.shape === "tower" && (s.h || 2) > 3.2) roofKit(g, s.gx, s.gy, s.w, s.d, h, now, (s.gx * 100 + s.gy * 10) | 0);
+    else if (s.shape === "tower" || (s.shape === "box" && (s.h || 2) > 1.6)) { const t = isoPt(s.gx + s.w * 0.5, s.gy + s.d * 0.2, h); beacon(g, t[0], t[1], now, (s.gx * 7 + 1) | 0); }
+    if (s.shape === "chimney") smoke(g, s.gx, s.gy, h, now, (s.gx * 11) | 0);
+    if (s.shape === "cool") smoke(g, s.gx, s.gy, s.w * 3.4, now, (s.gx * 13) | 0);
+    if (s.burning) { const b = isoPt(s.gx + (s.w || 1) / 2, s.gy + (s.d || 1) / 2, h * 0.92); facFlame(g, b[0], b[1], 1, now, (s.gx * 5) | 0); }
   }
 
   function drawFacFx(g, F, now) {
@@ -3942,9 +4126,10 @@
     F.shells = F.shells.filter(sh => {
       const t = (now - sh.t0) / sh.dur;
       if (t >= 1) { hitStruct(F, sh.s); return false; }
-      const x = sh.from[0] + (sh.to[0] - sh.from[0]) * t, y = sh.from[1] + (sh.to[1] - sh.from[1]) * t - Math.sin(t * Math.PI) * 90;
-      g.fillStyle = "#20303f"; g.beginPath(); g.arc(x, y, 4.5, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = "#ffb15a99"; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x - (sh.to[0] - sh.from[0]) * 0.05, y + 8); g.stroke();
+      const x = sh.from[0] + (sh.to[0] - sh.from[0]) * t, y = sh.from[1] + (sh.to[1] - sh.from[1]) * t - Math.sin(t * Math.PI) * (sh.arc || 80) * fcam.s;
+      g.save(); g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,177,90,0.5)"; g.lineWidth = 3 * fcam.s;   // a glowing tracer trail
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x - (sh.to[0] - sh.from[0]) * 0.04, y - Math.sin((t - 0.03) * Math.PI) * (sh.arc || 80) * fcam.s + (sh.to[1] - sh.from[1]) * 0.04 + Math.sin(t * Math.PI) * (sh.arc || 80) * fcam.s); g.stroke(); g.restore();
+      g.fillStyle = "#20303f"; g.beginPath(); g.arc(x, y, 4 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = 1; g.stroke();
       return true;
     });
     F.fx = F.fx.filter(p => {
@@ -3961,7 +4146,7 @@
     const F = ui.facility, el = $("facUi");
     if (!F) { el.hidden = true; return; }
     const site = G.fac[F.i][F.k], sc = F.scene;
-    const down = sc.s.filter(s => s.dead).length, total = sc.s.length, pct = Math.round(down / total * 100);
+    const down = sc.s.filter(s => s.dead || s.collapsing).length, total = sc.s.length, pct = Math.round(down / total * 100);
     el.innerHTML = `
       <div class="fac-top">
         <button class="fac-back" data-fac="back">‹ War map</button>
