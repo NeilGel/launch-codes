@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "launch-codes",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5178"],
+      "port": 5178,
+      "url": "http://localhost:5178/index.html"
+    }
+  ]
+}
