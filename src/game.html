@@ -27,14 +27,16 @@
   html, body { height: 100%; }
   body {
     margin: 0;
-    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    height: 100vh;                 /* fallback for older browsers */
+    height: 100svh;                /* the viewport WITH the browser toolbars showing, so the weapons dock always clears Safari's address bar */
     overflow: hidden;
     background: var(--space);
     color: var(--text);
     font-family: var(--ui);
     font-size: 15px;
     padding-inline: 16px;
-    padding-block: 8px;
+    padding-top: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));   /* clear the home indicator too */
     /* It's a game, not a document: a tap-and-hold should fire, never pop up the phone's copy / look-up bar,
        and pinching should zoom the globe (its own gesture), never the whole page. */
     -webkit-user-select: none; user-select: none;
