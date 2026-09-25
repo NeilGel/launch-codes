@@ -2859,9 +2859,9 @@
     if (st.scars.length > 400) st.scars.shift();
     if (s.type !== "bio") {
       ignite(c.i, ll, s.owner, true);                                   // the spot you bombed ALWAYS catches
-      // a strike on open ground sets a whole patch alight, not one spot — the bigger the warhead, the wider it spreads
-      const more = s.type === "nuke" ? 10 : s.type === "bomber" ? 5 : 3;
-      for (let n = 0; n < more; n++) ignite(c.i, offsetM(ll, Math.random() * Math.PI * 2, R * (0.5 + Math.random() * 0.9)), s.owner, true);
+      // a strike on open ground sets a whole patch alight, spread out (not one blob) so it reads as a real fire
+      const more = s.type === "nuke" ? 12 : s.type === "bomber" ? 7 : 4, rr = fireSize(c.i);
+      for (let n = 0; n < more; n++) ignite(c.i, offsetM(ll, Math.random() * Math.PI * 2, rr * (0.8 + Math.random() * 1.6)), s.owner, true);
     }
     return cityHits;
   }
@@ -2897,11 +2897,15 @@
   }
 
   // ---- Fire: it burns a while, spreads (downwind, and fast through vegetation) and scorches sites it reaches
-  const FIRE = { tick: 700, life: [18000, 32000], max: 120, spread: { veg: 0.58, town: 0.3, bare: 0.22 } };
+  const FIRE = { tick: 550, life: [22000, 40000], max: 150, spread: { veg: 0.7, town: 0.5, bare: 0.44 } };
   const burning = new Map();
   let fireSeq = 0, fireTick = 0;
   const fireOf = i => { if (!burning.has(i)) burning.set(i, { list: [], scars: [] }); return burning.get(i); };
-  const fireSize = i => clamp(spanOf(i) * 111320 / 1500, 120, 900);     // metres across one patch of fire
+  // A patch of fire is sized to the COUNTRY, not to absolute metres: ~1.6% of the country across.
+  // That way one patch always reads as a real fire at country zoom, and — since each spread step
+  // jumps about one patch-width — a single bomb's fire marches right across the map instead of
+  // sitting as a pin-prick that burns out where it started.
+  const fireSize = i => clamp(spanOf(i) * 111320 * 0.016, 1400, 46000);
   function ignite(i, ll, owner, force) {
     if (!ll || !d3.geoContains(features[i], ll)) return;
     const st = fireOf(i), r = fireSize(i);
@@ -2929,13 +2933,18 @@
           const contained = c.owner !== NEUTRAL ? 0.25 : 1;                 // a country with an owner fights its fires: firebreaks, water
           if (ground !== "water" && Math.random() < (FIRE.spread[ground] ?? FIRE.spread.bare) * (f.veg ? 1.3 : 1) * contained) born.push([q, f.owner]);
         }
-        if (list && G.t - f.hurt > 5000) {
-          f.hurt = G.t;
-          const near = list.find(q => up(q) && metres([q.lon, q.lat], [f.lon, f.lat]) < f.r + 250);
-          if (near && c.owner !== f.owner) woundSite(c, near, 1, f.owner);
-        }
         return true;
       });
+      // The wildfire slowly burns down the soft targets it engulfs — cities, factories, power, road and rail.
+      // Hardened MILITARY sites shrug off the flames: to take those you still have to strike them directly,
+      // so a stray fire can never win the war on its own. Damage is throttled per SITE (not per flame), so a
+      // site sitting under a hundred overlapping patches still just chars away steadily rather than vanishing.
+      if (list) for (const q of list) {
+        if (!up(q) || (FAC[q.t] && FAC[q.t].mil) || G.t - (q.burnT || 0) <= 4500) continue;
+        let by = null;
+        for (const f of st.list) { if (f.owner !== c.owner && metres([q.lon, q.lat], [f.lon, f.lat]) < f.r) { by = f.owner; break; } }
+        if (by != null) { q.burnT = G.t; woundSite(c, q, 1, by); }
+      }
       born.forEach(([q, owner]) => ignite(i, q, owner));
     }
   }
@@ -3213,17 +3222,33 @@
     if (!st || !st.list.length) return;
     const pxm = pxPerMetre(c);
     let lit = 0;
+    // The glow is drawn additively, so overlapping patches pile up into one bright, living mass of fire
+    // instead of a scatter of flat dots. A hot yellow-white core sits inside each orange halo.
+    g.save();
+    g.globalCompositeOperation = "lighter";
     for (const f of st.list) {
       const w = tproj([f.lon, f.lat]);
       if (!w) continue;
-      const [x, y] = toScreen(w[0], w[1]), rr = Math.max(3, f.r * pxm);
+      const [x, y] = toScreen(w[0], w[1]), rr = Math.max(7, f.r * pxm);
       if (x < -rr || x > tw + rr || y < -rr || y > th + rr) continue;
-      const age = (G.t - f.t0) / f.life;
-      g.globalAlpha = 0.5 * (0.75 + 0.25 * Math.sin(now / 110 + f.id)) * (1 - age * 0.6);
-      g.drawImage(blob("255,118,28"), x - rr, y - rr, rr * 2, rr * 2);
-      g.globalAlpha = 1;
-      if (lit++ >= (ui.lowFx ? 12 : 28)) continue;                            // only so many flames at once
-      const spread = Math.min(rr, 60) / zs;
+      const age = (G.t - f.t0) / f.life, fade = 1 - age * 0.45;
+      const flick = 0.72 + 0.28 * Math.sin(now / 90 + f.id * 1.7);
+      g.globalAlpha = 0.5 * fade * flick;                                     // orange halo
+      g.drawImage(blob("240,96,22"), x - rr, y - rr, rr * 2, rr * 2);
+      const cr = rr * 0.5;
+      g.globalAlpha = 0.9 * fade * flick;                                     // white-hot core
+      g.drawImage(blob("255,216,96"), x - cr, y - cr, cr * 2, cr * 2);
+    }
+    g.restore();
+    g.globalAlpha = 1;
+    for (const f of st.list) {                                               // rising flames + smoke on the biggest, nearest fires
+      if (lit >= (ui.lowFx ? 14 : 32)) break;
+      const w = tproj([f.lon, f.lat]);
+      if (!w) continue;
+      const [x, y] = toScreen(w[0], w[1]), rr = Math.max(7, f.r * pxm);
+      if (x < -rr || x > tw + rr || y < -rr || y > th + rr) continue;
+      lit++;
+      const spread = Math.min(rr, 70) / zs;
       emit("W" + f.id, now, 90, () => ({ kind: "fire", x: w[0], y: w[1], ox: (Math.random() - 0.5) * spread * 1.6, oy: (Math.random() - 0.5) * spread, vx: (Math.random() - 0.5) * 6, vy: -12 - Math.random() * 16, t0: now, life: 500 + Math.random() * 500, s: 3 + Math.random() * 3 }));
       emit("V" + f.id, now, 420, () => ({ kind: "smoke2", x: w[0], y: w[1], ox: (Math.random() - 0.5) * spread, oy: -4, vx: 10 + Math.random() * 8, vy: -14 - Math.random() * 8, t0: now, life: 4200, s: 5 + Math.random() * 3, shade: 34 }));
     }
@@ -3669,6 +3694,7 @@
     grass: "#6ec25a", concrete: "#c2ccd5", tarmac: "#565c66", water: "#37a8e6", sand: "#e3cd86", snow: "#e9f2f7",
   };
   const fcam = { s: 1, cx: 0, cy: 0, tw: 32, th: 16, zh: 22 };
+  let facHorizon = 0;                                        // screen-y of the horizon, for atmospheric perspective
   const isoPt = (gx, gy, gz) => [fcam.cx + (gx - gy) * fcam.tw * fcam.s, fcam.cy + ((gx + gy) * fcam.th - (gz || 0) * fcam.zh) * fcam.s];
   const lerp2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   function poly(g, pts, fill, line, lw) {
@@ -3710,7 +3736,12 @@
       windows(g, Lf[0], Lf[1], Lf[2], Lf[3], Math.max(2, Math.round(w * 2)), Math.max(2, Math.round(h * 1.3)), opts.win);
       windows(g, Rf[0], Rf[1], Rf[3], Rf[2], Math.max(2, Math.round(d * 2)), Math.max(2, Math.round(h * 1.3)), opts.win);
     }
-    if (opts.door) { const bl = Rf[1], br = Rf[0], dl = lerp2(bl, br, 0.32), dr = lerp2(bl, br, 0.68); const up = lerp2(dl, t(w, d), 0.34), up2 = lerp2(dr, t(w, 0), 0.34); poly(g, [dl, dr, up2, up], shade(color, 0.3), null, 0); }
+    if (opts.base && h > 1.2) {                                        // a glassy ground-floor / shopfront band
+      const gh = Math.min(0.5, h * 0.26), t2 = (x, y) => isoPt(gx + x, gy + y, z + gh);
+      gradPoly(g, [b(0, d), b(w, d), t2(w, d), t2(0, d)], mix(color, "#243040", 0.55), mix(color, "#161f2a", 0.55), line, w2 * 0.7);
+      gradPoly(g, [b(w, 0), b(w, d), t2(w, d), t2(w, 0)], mix(color, "#34455a", 0.5), mix(color, "#1e2a38", 0.5), line, w2 * 0.7);
+    }
+    if (opts.door) { const bl = Rf[1], br = Rf[0], dl = lerp2(bl, br, 0.32), dr = lerp2(bl, br, 0.68); const up = lerp2(dl, t(w, d), 0.34), up2 = lerp2(dr, t(w, 0), 0.34); poly(g, [dl, dr, up2, up], shade(color, 0.25), null, 0); }
     gradPoly(g, Tf, shade(color, 1.34), shade(color, 1.06), line, w2);
     if (opts.roof) poly(g, Tf, opts.roof, line, w2);
     if (opts.parapet) { const p = 0.12; poly(g, [t(p, p), t(w - p, p), t(w - p, d - p), t(p, d - p)], shade(color, 0.9), line, w2 * 0.8); }   // a raised roof rim
@@ -4001,10 +4032,13 @@
   }
   function roofKit(g, gx, gy, w, d, z, now, seed) {          // vents, a mast and a beacon on a rooftop
     const r = seeded(seed | 0);
-    const n = 1 + Math.floor(r() * 2);
-    for (let k = 0; k < n; k++) cuboid(g, gx + 0.2 + r() * Math.max(0.1, w - 0.6), gy + 0.2 + r() * Math.max(0.1, d - 0.6), 0.3, 0.3, 0.16, "#9aa2ab", { z });
-    const ax = gx + w * 0.78, ay = gy + d * 0.22, base = isoPt(ax, ay, z), tipZ = z + 0.8 + r() * 0.5, tip = isoPt(ax, ay, tipZ);
-    g.strokeStyle = "#6b7681"; g.lineWidth = lw2(); g.beginPath(); g.moveTo(base[0], base[1]); g.lineTo(tip[0], tip[1]); g.stroke();
+    for (let k = 0, n = 1 + Math.floor(r() * 2); k < n; k++) cuboid(g, gx + 0.18 + r() * Math.max(0.1, w - 0.55), gy + 0.18 + r() * Math.max(0.1, d - 0.55), 0.28, 0.28, 0.15, "#9aa2ab", { z });
+    if (r() < 0.6 && w > 0.7) cylinder(g, gx + w * 0.28 + 0.1, gy + d * 0.62, 0.2, 0.32, "#8a939c", { z: z + 0.1 });   // water tank
+    if (r() < 0.5 && w > 1.0) cuboid(g, gx + w * 0.4, gy + d * 0.22, 0.42, 0.4, 0.34, "#7f8892", { z, win: "#bfe6ff" });   // penthouse / lift housing
+    const ax = gx + w * 0.8, ay = gy + d * 0.2, base = isoPt(ax, ay, z), tipZ = z + 0.9 + r() * 0.6, tip = isoPt(ax, ay, tipZ);
+    g.strokeStyle = "#6b7681"; g.lineWidth = lw2(); g.beginPath(); g.moveTo(base[0], base[1]); g.lineTo(tip[0], tip[1]);
+    for (let q = 1; q <= 2; q++) { const m = isoPt(ax, ay, z + (tipZ - z) * q / 3); g.moveTo(m[0] - 6 * fcam.s, m[1]); g.lineTo(m[0] + 6 * fcam.s, m[1]); }   // mast cross-bars
+    g.stroke();
     beacon(g, tip[0], tip[1], now, seed);
   }
   function smoke(g, gx, gy, z, now, seed) {                  // rising puffs from a chimney / cooling tower
@@ -4014,12 +4048,18 @@
   }
   function drawProp(g, s, now) {
     const gx = s.gx, gy = s.gy, c0 = isoPt(gx, gy, 0);
-    softShadow(g, gx - 0.25, gy - 0.25, 0.6, 0.6);
+    // atmospheric perspective: far countryside shrinks and hazes toward the horizon
+    let ps = 1, hz = 0;
+    if (s.far) { const t = clamp((c0[1] - facHorizon) / Math.max(1, fh2 - facHorizon), 0, 1); ps = 0.44 + 0.56 * t; hz = (1 - t) * 0.6; }
+    const col = c => hz > 0.02 ? mix(c, "#d6e6f0", hz) : c;
+    softShadow(g, gx - 0.25 * ps, gy - 0.25 * ps, 0.6 * ps, 0.6 * ps);
+    if (ps !== 1) { g.save(); g.translate(c0[0], c0[1]); g.scale(ps, ps); g.translate(-c0[0], -c0[1]); }
     switch (s.k) {
-      case "tree": { const tr = isoPt(gx, gy, 0.34); g.strokeStyle = "#6b4a2e"; g.lineWidth = lw2() * 1.7; g.beginPath(); g.moveTo(c0[0], c0[1]); g.lineTo(tr[0], tr[1]); g.stroke();
-        const cz = isoPt(gx, gy, 0.55 + s.s * 0.18), rr = (9 + s.s * 4) * fcam.s; g.fillStyle = s.c; g.beginPath(); g.arc(cz[0], cz[1] - rr * 0.5, rr, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke();
-        g.fillStyle = shade(s.c, 1.2); g.beginPath(); g.arc(cz[0] - rr * 0.3, cz[1] - rr * 0.85, rr * 0.48, 0, Math.PI * 2); g.fill(); } break;
-      case "bush": { const cz = isoPt(gx, gy, 0.16), rr = 7 * fcam.s; g.fillStyle = s.c; g.beginPath(); g.arc(cz[0], cz[1] - rr * 0.4, rr, 0, Math.PI * 2); g.arc(cz[0] + rr * 0.7, cz[1] - rr * 0.2, rr * 0.7, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke(); } break;
+      case "tree": { const tr = isoPt(gx, gy, 0.34); g.strokeStyle = col("#6b4a2e"); g.lineWidth = lw2() * 1.7; g.beginPath(); g.moveTo(c0[0], c0[1]); g.lineTo(tr[0], tr[1]); g.stroke();
+        const cz = isoPt(gx, gy, 0.55 + s.s * 0.18), rr = (9 + s.s * 4) * fcam.s; g.fillStyle = col(shade(s.c, 0.88)); g.beginPath(); g.arc(cz[0], cz[1] - rr * 0.5, rr, 0, Math.PI * 2); g.fill(); g.strokeStyle = col(OUT); g.lineWidth = lw2(); g.stroke();
+        g.fillStyle = col(s.c); g.beginPath(); g.arc(cz[0] + rr * 0.15, cz[1] - rr * 0.62, rr * 0.72, 0, Math.PI * 2); g.fill();
+        g.fillStyle = col(shade(s.c, 1.22)); g.beginPath(); g.arc(cz[0] - rr * 0.32, cz[1] - rr * 0.9, rr * 0.46, 0, Math.PI * 2); g.fill(); } break;
+      case "bush": { const cz = isoPt(gx, gy, 0.16), rr = 7 * fcam.s; g.fillStyle = col(s.c); g.beginPath(); g.arc(cz[0], cz[1] - rr * 0.4, rr, 0, Math.PI * 2); g.arc(cz[0] + rr * 0.7, cz[1] - rr * 0.2, rr * 0.7, 0, Math.PI * 2); g.fill(); g.strokeStyle = col(OUT); g.lineWidth = lw2(); g.stroke(); } break;
       case "lamp": { const top = isoPt(gx, gy, 1.15); g.strokeStyle = "#8a929b"; g.lineWidth = lw2() * 1.3; g.beginPath(); g.moveTo(c0[0], c0[1]); g.lineTo(top[0], top[1]); g.stroke();
         g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,224,138,0.5)"; g.beginPath(); g.arc(top[0], top[1] + 2, 7 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
         g.fillStyle = "#ffe08a"; g.beginPath(); g.arc(top[0], top[1], 3 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = 1; g.stroke(); } break;
@@ -4027,9 +4067,10 @@
       case "crate": cuboid(g, gx, gy, 0.44, 0.44, 0.42, s.c); break;
       case "barrel": cylinder(g, gx, gy, 0.2, 0.5, s.c); break;
       case "sandbag": for (let q = 0; q < 3; q++) cuboid(g, gx + q * 0.16, gy, 0.34, 0.34, 0.15, "#c9b482", { z: q * 0.14 }); break;
-      case "rock": { const cz = isoPt(gx, gy, 0.12); g.fillStyle = s.c; g.beginPath(); g.moveTo(cz[0] - 8 * fcam.s, cz[1]); g.lineTo(cz[0] - 2 * fcam.s, cz[1] - 9 * fcam.s); g.lineTo(cz[0] + 6 * fcam.s, cz[1] - 6 * fcam.s); g.lineTo(cz[0] + 9 * fcam.s, cz[1] + 2 * fcam.s); g.closePath(); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke(); } break;
-      case "buoy": { const cz = isoPt(gx, gy, 0.3); g.strokeStyle = "#20303f"; g.lineWidth = lw2(); g.beginPath(); g.moveTo(c0[0], c0[1]); g.lineTo(cz[0], cz[1]); g.stroke(); g.fillStyle = (Math.floor(now / 600) % 2) ? "#ff5a3c" : "#ffd24a"; g.beginPath(); g.arc(cz[0], cz[1], 4 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.stroke(); } break;
+      case "rock": { const cz = isoPt(gx, gy, 0.12); g.fillStyle = col(s.c); g.beginPath(); g.moveTo(cz[0] - 8 * fcam.s, cz[1]); g.lineTo(cz[0] - 2 * fcam.s, cz[1] - 9 * fcam.s); g.lineTo(cz[0] + 6 * fcam.s, cz[1] - 6 * fcam.s); g.lineTo(cz[0] + 9 * fcam.s, cz[1] + 2 * fcam.s); g.closePath(); g.fill(); g.strokeStyle = col(OUT); g.lineWidth = lw2(); g.stroke(); } break;
+      case "buoy": { const cz = isoPt(gx, gy, 0.3); g.strokeStyle = col("#20303f"); g.lineWidth = lw2(); g.beginPath(); g.moveTo(c0[0], c0[1]); g.lineTo(cz[0], cz[1]); g.stroke(); g.fillStyle = col((Math.floor(now / 600) % 2) ? "#ff5a3c" : "#ffd24a"); g.beginPath(); g.arc(cz[0], cz[1], 4 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = col(OUT); g.stroke(); } break;
     }
+    if (ps !== 1) g.restore();
   }
   const DECOR_KINDS = {
     grass: ["tree", "tree", "tree", "bush", "lamp"], concrete: ["lamp", "crate", "sandbag", "barrel", "bush"],
@@ -4107,7 +4148,7 @@
     g.setTransform(fdpr, 0, 0, fdpr, 0, 0);
     g.clearRect(0, 0, fw2, fh2);
     const sc = F.scene, gc = FGROUND[sc.ground] || FGROUND.grass, water = sc.ground === "water";
-    const horizon = fh2 * 0.30;
+    const horizon = fh2 * 0.30; facHorizon = horizon;
     // ---- Sky ----
     const sky = g.createLinearGradient(0, 0, 0, horizon + 60);
     sky.addColorStop(0, "#74bdf4"); sky.addColorStop(1, "#d6ecff");
@@ -4132,10 +4173,26 @@
       for (let tt = -N; tt <= N; tt++) { let a = isoPt(tt, -N, 0), b = isoPt(tt, N, 0); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); a = isoPt(-N, tt, 0); b = isoPt(N, tt, 0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
     }
     g.restore();
+    const G0 = 3.9;
+    // ---- A road running up to the compound from the near edge ----
+    if (!water) {
+      const road = [isoPt(-0.9, G0, 0), isoPt(0.9, G0, 0), isoPt(1.1, 10, 0), isoPt(-1.1, 10, 0)];
+      g.beginPath(); g.moveTo(road[0][0], road[0][1]); for (const p of road) g.lineTo(p[0], p[1]); g.closePath();
+      g.fillStyle = "#5a606b"; g.fill(); g.strokeStyle = "#454b54"; g.lineWidth = lw2() * 0.7; g.stroke();
+      g.save(); g.strokeStyle = "#e8ecf0"; g.lineWidth = 2 * fcam.s; g.setLineDash([10 * fcam.s, 9 * fcam.s]);
+      const ra = isoPt(0, G0, 0), rb = isoPt(0, 10, 0); g.beginPath(); g.moveTo(ra[0], ra[1]); g.lineTo(rb[0], rb[1]); g.stroke(); g.setLineDash([]); g.restore();
+    }
     // ---- The compound pad the facility stands on ----
-    const G0 = 3.9, pad = [isoPt(-G0, -G0, 0), isoPt(G0, -G0, 0), isoPt(G0, G0, 0), isoPt(-G0, G0, 0)];
+    const pad = [isoPt(-G0, -G0, 0), isoPt(G0, -G0, 0), isoPt(G0, G0, 0), isoPt(-G0, G0, 0)];
     g.beginPath(); g.moveTo(pad[0][0], pad[0][1]); for (const p of pad) g.lineTo(p[0], p[1]); g.closePath();
     g.fillStyle = water ? mix(gc, "#b8a889", 0.35) : shade(gc, 0.93); g.fill(); g.strokeStyle = shade(gc, 0.66); g.lineWidth = lw2() * 0.9; g.stroke();
+    // chain-link fence along the two back edges of the compound
+    if (!water) { g.strokeStyle = "#8b929a"; g.lineWidth = lw2() * 0.8;
+      for (const [ax, ay, bx, by] of [[-G0, -G0, G0, -G0], [-G0, -G0, -G0, G0]]) {
+        for (let u = 0; u <= 1; u += 1 / 10) { const px = ax + (bx - ax) * u, py = ay + (by - ay) * u, p0 = isoPt(px, py, 0), p1 = isoPt(px, py, 0.4); g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke(); }
+        const r0 = isoPt(ax, ay, 0.4), r1 = isoPt(bx, by, 0.4); g.beginPath(); g.moveTo(r0[0], r0[1]); g.lineTo(r1[0], r1[1]); g.stroke();
+      }
+    }
     // ---- Everything on the land — far trees, buildings, decor and your attackers — painted back to front ----
     const depth = s => s.gx + s.gy + (s.unit ? 0.3 : 0) - (s.dead && !s.collapsing ? 9 : 0);
     const order = [...sc.s, ...sc.decor, ...sc.land.trees, ...sc.attackers].sort((a, b) => depth(a) - depth(b));
@@ -4154,8 +4211,8 @@
     const col = s.hitT && now - s.hitT < 120 ? "#ffffff" : s.color;
     const h = (s.h || 2) * (1 + wob);
     switch (s.shape) {
-      case "tower": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, parapet: true }); if (s.opts.roof) cuboid(g, s.gx + 0.1, s.gy + 0.1, s.w - 0.2, s.d - 0.2, 0.2, s.opts.roof, { z: h }); break;
-      case "box": case "shed": case "dock": case "launcher": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, roof: s.opts.roof && shade(s.opts.roof, 1), door: s.shape !== "dock" && h > 1.1, parapet: s.shape === "box" && !s.opts.roof }); if (s.shape === "launcher") { const t = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h); g.strokeStyle = "#2c3330"; g.lineWidth = lw2() * 1.6; for (let q = -1; q <= 1; q += 2) { g.beginPath(); g.moveTo(t[0] + q * 6, t[1]); g.lineTo(t[0] + q * 10, t[1] - 20 * fcam.s); g.stroke(); } } break;
+      case "tower": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, parapet: true, base: true }); if (s.opts.roof) cuboid(g, s.gx + 0.1, s.gy + 0.1, s.w - 0.2, s.d - 0.2, 0.2, s.opts.roof, { z: h }); break;
+      case "box": case "shed": case "dock": case "launcher": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, roof: s.opts.roof && shade(s.opts.roof, 1), door: s.shape !== "dock" && h > 1.1, parapet: s.shape === "box" && !s.opts.roof, base: s.shape === "box" && h > 1.4 }); if (s.shape === "launcher") { const t = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h); g.strokeStyle = "#2c3330"; g.lineWidth = lw2() * 1.6; for (let q = -1; q <= 1; q += 2) { g.beginPath(); g.moveTo(t[0] + q * 6, t[1]); g.lineTo(t[0] + q * 10, t[1] - 20 * fcam.s); g.stroke(); } } break;
       case "hangar": cuboid(g, s.gx, s.gy, s.w, s.d, h * 0.6, col); { const cz = h * 0.6; const a = isoPt(s.gx, s.gy + s.d / 2, cz), b = isoPt(s.gx + s.w, s.gy + s.d / 2, cz), ap = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, cz + h * 0.7); poly(g, [isoPt(s.gx, s.gy, cz), isoPt(s.gx + s.w, s.gy, cz), isoPt(s.gx + s.w / 2, s.gy, cz + h * 0.7)], shade(col, 1.1), OUT, lw2()); poly(g, [isoPt(s.gx, s.gy, cz), isoPt(s.gx, s.gy + s.d, cz), isoPt(s.gx + s.w / 2, s.gy + s.d, cz + h * 0.7), isoPt(s.gx + s.w / 2, s.gy, cz + h * 0.7)], shade(col, 0.8), OUT, lw2()); } break;
       case "dome": cuboid(g, s.gx - (s.w) / 2 + 0.2, s.gy - (s.d) / 2 + 0.2, (s.w) - 0.4, (s.d) - 0.4, h * 0.5, shade(col, 0.9)); dome(g, s.gx + 0 * s.w, s.gy, (s.w || 1.2) * 0.6, h * 0.5, col); break;
       case "silo": cylinder(g, s.gx, s.gy, s.w, h, col, { cap: shade(col, 0.7), capH: s.w * 1.1 }); break;
@@ -4174,8 +4231,8 @@
       default: cuboid(g, s.gx, s.gy, s.w || 1, s.d || 1, h, col, { win: s.opts.win });
     }
     // rooftop clutter, warning beacons, smoke and fire
-    if (s.shape === "tower" && (s.h || 2) > 3.2) roofKit(g, s.gx, s.gy, s.w, s.d, h, now, (s.gx * 100 + s.gy * 10) | 0);
-    else if (s.shape === "tower" || (s.shape === "box" && (s.h || 2) > 1.6)) { const t = isoPt(s.gx + s.w * 0.5, s.gy + s.d * 0.2, h); beacon(g, t[0], t[1], now, (s.gx * 7 + 1) | 0); }
+    if (s.shape === "tower" || (s.shape === "box" && (s.h || 2) > 2.2)) roofKit(g, s.gx, s.gy, s.w, s.d, h, now, (s.gx * 100 + s.gy * 10) | 0);
+    else if (s.shape === "box" && (s.h || 2) > 1.6) { const t = isoPt(s.gx + s.w * 0.5, s.gy + s.d * 0.2, h); beacon(g, t[0], t[1], now, (s.gx * 7 + 1) | 0); }
     if (s.shape === "chimney") smoke(g, s.gx, s.gy, h, now, (s.gx * 11) | 0);
     if (s.shape === "cool") smoke(g, s.gx, s.gy, s.w * 3.4, now, (s.gx * 13) | 0);
     if (s.burning) { const b = isoPt(s.gx + (s.w || 1) / 2, s.gy + (s.d || 1) / 2, h * 0.92); facFlame(g, b[0], b[1], 1, now, (s.gx * 5) | 0); }
@@ -4570,5 +4627,6 @@
     newGame();
   }
   requestAnimationFrame(frame);
+  /*__TESTHOOK__*/
 })();
 </script>
