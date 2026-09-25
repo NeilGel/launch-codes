@@ -2922,7 +2922,8 @@
           return false;
         }
         if (Math.random() < 0.6) {
-          const a = Math.random() < 0.6 ? (Math.random() - 0.5) * 1.8 : Math.random() * Math.PI * 2;   // mostly east, with the wind
+          // spread in every direction so it fills the country, with just a gentle downwind (east) lean
+          const a = Math.random() < 0.3 ? (Math.random() - 0.5) * 1.5 : Math.random() * Math.PI * 2;
           const q = offsetM([f.lon, f.lat], a, f.r * (1.0 + Math.random() * 0.6));
           const ground = groundAt(i, q);
           const contained = c.owner !== NEUTRAL ? 0.25 : 1;                 // a country with an owner fights its fires: firebreaks, water
@@ -3659,6 +3660,11 @@
     const r = clamp(Math.round(((n >> 16) & 255) * f), 0, 255), g = clamp(Math.round(((n >> 8) & 255) * f), 0, 255), b = clamp(Math.round((n & 255) * f), 0, 255);
     return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
   };
+  const mix = (a, b, t) => {                               // blend two hex colours (for atmospheric haze)
+    const na = parseInt(a.slice(1), 16), nb = parseInt(b.slice(1), 16);
+    const r = Math.round(((na >> 16) & 255) * (1 - t) + ((nb >> 16) & 255) * t), g = Math.round(((na >> 8) & 255) * (1 - t) + ((nb >> 8) & 255) * t), bl = Math.round((na & 255) * (1 - t) + (nb & 255) * t);
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + bl).toString(16).slice(1);
+  };
   const FGROUND = {
     grass: "#6ec25a", concrete: "#c2ccd5", tarmac: "#565c66", water: "#37a8e6", sand: "#e3cd86", snow: "#e9f2f7",
   };
@@ -3860,6 +3866,22 @@
       S("tower", 1.0, -0.5, 0.5, 1.0, 3.2, "#d64b63", { hp: 3 }), S("ship", 0.2, 1.8, 2.0, 0.8, 0.8, "#8894a0") ] }),
   };
 
+  // The countryside AROUND the facility: field patches and a wide scatter of trees/rocks so the compound
+  // sits in a landscape that runs off every edge of the screen, not on a lonely floating tile.
+  const FIELD_COLS = {
+    grass: ["#5fb24f", "#69bf58", "#7cae43", "#8a9e4b", "#a3b05a"], concrete: ["#b7bcc2", "#c7ccd0", "#a7aeb5"],
+    tarmac: ["#5a616b", "#666d77", "#4e545d"], sand: ["#e0c97e", "#d6bd6f", "#e8d69a"], water: ["#33a0dd", "#3aa8e6", "#2f95cf"], snow: ["#e6eff5", "#dbe6ee"],
+  };
+  function makeLandscape(sc, rng) {
+    const fields = [], trees = [], cols = FIELD_COLS[sc.ground] || FIELD_COLS.grass;
+    for (let k = 0; k < 12; k++) { const a = rng() * Math.PI * 2, r = 5.5 + rng() * 8; fields.push({ gx: Math.cos(a) * r, gy: Math.sin(a) * r, w: 2 + rng() * 3.5, d: 1.8 + rng() * 3, c: cols[Math.floor(rng() * cols.length)] }); }
+    const kind = sc.ground === "sand" ? "rock" : sc.ground === "water" ? "buoy" : "tree";
+    for (let k = 0; k < 30; k++) { const a = rng() * Math.PI * 2, r = 4.6 + rng() * 9.5, gx = Math.cos(a) * r, gy = Math.sin(a) * r;
+      if (Math.abs(gx) < 4.2 && Math.abs(gy) < 4.2) continue;                    // keep the compound itself clear
+      trees.push({ prop: true, far: true, k: kind, gx, gy, s: Math.floor(rng() * 3), c: kind === "tree" ? TREE_COLS[Math.floor(rng() * TREE_COLS.length)] : kind === "rock" ? "#b8a882" : "#ff5a3c" }); }
+    return { fields, trees };
+  }
+
   function buildScene(i, k) {
     const site = G.fac[i][k], rng = seeded(i * 131 + k * 977 + site.t.charCodeAt(0));
     const make = FAC_SCENE[site.t] || FAC_SCENE.base;
@@ -3870,6 +3892,7 @@
     for (let n = standing; n < total; n++) scene.s[n].dead = true;
     scene.worth = site.max / total;
     scene.decor = makeDecor(scene, seeded(i * 17 + k * 101 + 3));
+    scene.land = makeLandscape(scene, seeded(i * 29 + k * 53 + 11));
     // Your assault force, lined up along the near edge facing the facility.
     scene.attackers = [
       { unit: "tank", gx: -2.3, gy: 3.0, col: "#5c6b45" },
@@ -3880,17 +3903,12 @@
   }
 
   function fitFacility() {
-    const sc = ui.facility && ui.facility.scene; if (!sc || !fw2) return;
-    fcam.s = 1; fcam.cx = 0; fcam.cy = 0;
-    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-    const add = (p) => { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); };
-    const G0 = 3.6;
-    [[-G0, -G0], [G0, -G0], [G0, G0], [-G0, G0]].forEach(([a, b]) => add(isoPt(a, b, 0)));
-    for (const s of sc.s) { add(isoPt(s.gx, s.gy, (s.h || 3) + 1)); add(isoPt(s.gx + (s.w || 1), s.gy + (s.d || 1), 0)); }
-    const bw = x1 - x0, bh = y1 - y0, pad = 54;
-    fcam.s = Math.min((fw2 - pad) / bw, (fh2 - pad) / bh);
-    fcam.cx = fw2 / 2 - (x0 + x1) / 2 * fcam.s;
-    fcam.cy = fh2 / 2 - (y0 + y1) / 2 * fcam.s + 8;
+    if (!fw2) return;
+    // A fixed, immersive camera: the compound sits low-centre and the ground runs off every edge to the horizon.
+    const wide = Math.min(fw2, fh2 * 0.95);
+    fcam.s = clamp(wide * 0.5 / (7.4 * fcam.tw), 0.55, 2.3);
+    fcam.cx = fw2 / 2;
+    fcam.cy = fh2 * 0.64;
   }
 
   function enterFacility(i, k) {
@@ -4088,41 +4106,40 @@
     const g = fx2;
     g.setTransform(fdpr, 0, 0, fdpr, 0, 0);
     g.clearRect(0, 0, fw2, fh2);
-    const sc = F.scene, night = false;
-    // sky
-    const sky = g.createLinearGradient(0, 0, 0, fh2);
-    sky.addColorStop(0, "#8fd0ff"); sky.addColorStop(1, "#e4f4ff");
-    g.fillStyle = sky; g.fillRect(0, 0, fw2, fh2);
-    // a couple of fluffy clouds
-    g.fillStyle = "#ffffffcc";
-    for (let k = 0; k < 3; k++) { const cx = (k * 0.37 + 0.12) * fw2 + Math.sin(now / 4000 + k) * 12, cy = fh2 * (0.12 + k * 0.06); g.beginPath(); g.ellipse(cx, cy, 34, 16, 0, 0, Math.PI * 2); g.ellipse(cx + 24, cy + 4, 24, 12, 0, 0, Math.PI * 2); g.ellipse(cx - 22, cy + 5, 20, 11, 0, 0, Math.PI * 2); g.fill(); }
+    const sc = F.scene, gc = FGROUND[sc.ground] || FGROUND.grass, water = sc.ground === "water";
+    const horizon = fh2 * 0.30;
+    // ---- Sky ----
+    const sky = g.createLinearGradient(0, 0, 0, horizon + 60);
+    sky.addColorStop(0, "#74bdf4"); sky.addColorStop(1, "#d6ecff");
+    g.fillStyle = sky; g.fillRect(0, 0, fw2, horizon + 60);
+    g.fillStyle = "#ffffffd0";
+    for (let k = 0; k < 4; k++) { const cx = ((k * 0.31 + 0.1) * fw2 + now / 90 % (fw2 + 160)) % (fw2 + 160) - 80, cy = horizon * (0.22 + k * 0.17); g.beginPath(); g.ellipse(cx, cy, 38, 15, 0, 0, Math.PI * 2); g.ellipse(cx + 28, cy + 5, 26, 11, 0, 0, Math.PI * 2); g.ellipse(cx - 26, cy + 6, 22, 10, 0, 0, Math.PI * 2); g.fill(); }
+    // ---- Distant hills at the horizon (two hazed layers) ----
+    for (let Lr = 0; Lr < 2; Lr++) { const hc = mix(gc, "#d6ecff", Lr === 0 ? 0.7 : 0.5), by = horizon + Lr * 5, rh = seeded(4400 + Lr * 13);
+      g.fillStyle = hc; g.beginPath(); g.moveTo(0, by + 40); for (let x = 0; x <= fw2; x += 40) g.lineTo(x, by - (10 + Math.sin(x * 0.011 + Lr * 2) * 8 + rh() * 12)); g.lineTo(fw2, by + 40); g.closePath(); g.fill(); }
+    // ---- Ground filling the screen, hazing to the horizon ----
+    const grd = g.createLinearGradient(0, horizon, 0, fh2);
+    grd.addColorStop(0, mix(gc, "#d6ecff", 0.58)); grd.addColorStop(0.16, shade(gc, 1.03)); grd.addColorStop(1, shade(gc, 0.84));
+    g.fillStyle = grd; g.fillRect(0, horizon, fw2, fh2 - horizon);
     // camera shake
     F.shake *= 0.86; const shx = (Math.random() - 0.5) * F.shake, shy = (Math.random() - 0.5) * F.shake;
     g.save(); g.translate(shx, shy);
-    // ground plate (a floating diorama slab)
-    const G0 = 3.6, gc = FGROUND[sc.ground] || FGROUND.grass;
-    const top = [isoPt(-G0, -G0, 0), isoPt(G0, -G0, 0), isoPt(G0, G0, 0), isoPt(-G0, G0, 0)];
-    const drop = 0.7, bt = [isoPt(-G0, G0, -drop), isoPt(G0, G0, -drop)];
-    poly(g, [top[3], top[2], bt[1], bt[0]], shade(gc, 0.5), OUT, lw2());               // slab side (front-left)
-    const br = isoPt(G0, -G0, -drop);
-    poly(g, [top[1], top[2], bt[1], br], shade(gc, 0.4), OUT, lw2());                  // slab side (front-right)
-    const gctr = isoPt(0, 0, 0), rg = g.createRadialGradient(gctr[0], gctr[1] - 10, 6, gctr[0], gctr[1], G0 * fcam.tw * fcam.s * 1.5);
-    rg.addColorStop(0, shade(gc, 1.1)); rg.addColorStop(1, shade(gc, 0.8));                // soft light pooling in the middle
-    g.beginPath(); g.moveTo(top[0][0], top[0][1]); for (const p of top) g.lineTo(p[0], p[1]); g.closePath(); g.fillStyle = rg; g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke();
-    g.save(); g.beginPath(); g.moveTo(top[0][0], top[0][1]); for (const p of top) g.lineTo(p[0], p[1]); g.closePath(); g.clip();
-    if (sc.ground === "water") { g.strokeStyle = shade(gc, 1.25); g.lineWidth = 1.5; for (let k = -6; k < 9; k++) { g.beginPath(); const yy = top[0][1] + k * 9 + Math.sin(now / 500 + k) * 2; g.moveTo(top[0][0], yy); g.lineTo(top[1][0], yy); g.stroke(); } }
+    g.save(); g.beginPath(); g.rect(-40, horizon - 6, fw2 + 80, fh2); g.clip();
+    if (water) { g.strokeStyle = mix(gc, "#ffffff", 0.25); g.lineWidth = 1.5; for (let yy = horizon; yy < fh2; yy += 9) { g.beginPath(); g.moveTo(0, yy + Math.sin(now / 500 + yy) * 2); g.lineTo(fw2, yy + Math.sin(now / 500 + yy + 1) * 2); g.stroke(); } }
     else {
-      const r = seeded((sc.type || "x").charCodeAt(0) * 91 + 7);
-      for (let k = 0; k < 7; k++) { const pp = isoPt((r() * 2 - 1) * G0 * 0.85, (r() * 2 - 1) * G0 * 0.85, 0), rr = (12 + r() * 22) * fcam.s; g.globalAlpha = 0.1; g.fillStyle = shade(gc, r() < 0.5 ? 0.72 : 1.16); g.beginPath(); g.ellipse(pp[0], pp[1], rr, rr * 0.5, 0, 0, Math.PI * 2); g.fill(); }   // dirt / wear
-      g.globalAlpha = 1; g.strokeStyle = shade(gc, 0.8); g.lineWidth = 1;
-      for (let tt = -G0 + 1; tt < G0; tt++) { let a = isoPt(tt, -G0, 0), b = isoPt(tt, G0, 0); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); a = isoPt(-G0, tt, 0); b = isoPt(G0, tt, 0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+      for (const f of sc.land.fields) { const c = isoPt(f.gx, f.gy, 0); g.globalAlpha = 0.5; g.fillStyle = f.c; g.beginPath(); g.ellipse(c[0], c[1], f.w * fcam.tw * fcam.s, f.d * fcam.th * fcam.s, 0, 0, Math.PI * 2); g.fill(); }
+      g.globalAlpha = 1; g.strokeStyle = "rgba(20,36,59,0.06)"; g.lineWidth = 1; const N = 18;
+      for (let tt = -N; tt <= N; tt++) { let a = isoPt(tt, -N, 0), b = isoPt(tt, N, 0); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); a = isoPt(-N, tt, 0); b = isoPt(N, tt, 0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
     }
     g.restore();
-    // Everything on the plate — buildings, scattered decor and your attackers — painted back to front.
+    // ---- The compound pad the facility stands on ----
+    const G0 = 3.9, pad = [isoPt(-G0, -G0, 0), isoPt(G0, -G0, 0), isoPt(G0, G0, 0), isoPt(-G0, G0, 0)];
+    g.beginPath(); g.moveTo(pad[0][0], pad[0][1]); for (const p of pad) g.lineTo(p[0], p[1]); g.closePath();
+    g.fillStyle = water ? mix(gc, "#b8a889", 0.35) : shade(gc, 0.93); g.fill(); g.strokeStyle = shade(gc, 0.66); g.lineWidth = lw2() * 0.9; g.stroke();
+    // ---- Everything on the land — far trees, buildings, decor and your attackers — painted back to front ----
     const depth = s => s.gx + s.gy + (s.unit ? 0.3 : 0) - (s.dead && !s.collapsing ? 9 : 0);
-    const order = [...sc.s, ...(sc.decor || []), ...(sc.attackers || [])].sort((a, b) => depth(a) - depth(b));
+    const order = [...sc.s, ...sc.decor, ...sc.land.trees, ...sc.attackers].sort((a, b) => depth(a) - depth(b));
     for (const s of order) s.unit ? drawAttacker(g, s, now) : s.prop ? drawProp(g, s, now) : drawStruct(g, s, now);
-    // effects
     drawFacFx(g, F, now);
     g.restore();
   }
