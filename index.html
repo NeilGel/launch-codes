@@ -4367,6 +4367,7 @@
   }
   function boomFac(F, x, y, big) {
     const t0 = performance.now(), sc = fcam.s;
+    if (big >= 1) F.flash = t0;                                                                            // a big blast lights up the whole scene
     F.fx.push({ kind: "shock", x, y, t0, dur: 320 + big * 240, R: (30 + big * 72) * sc });                 // a shockwave races out
     F.fx.push({ kind: "fireball", x, y, t0, dur: 380 + big * 320, R: (18 + big * 36) * sc });               // the fireball
     F.fx.push({ kind: "flash", x, y, t0, dur: 90 + big * 90, R: (18 + big * 32) * sc });
@@ -4733,6 +4734,7 @@
     vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(10,16,26,0.22)"); g.fillStyle = vg; g.fillRect(0, 0, fw2, fh2);
     if (mood.rain) { g.strokeStyle = "rgba(206,220,230,0.4)"; g.lineWidth = 1;     // slanting rain on overcast days
       for (let k = 0; k < 90; k++) { const rx = (k * 137 + now * 0.55) % (fw2 + 30) - 15, ry = (k * 83 + now * 1.1) % (fh2 + 20); g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx - 4, ry + 13); g.stroke(); } }
+    if (F.flash && now - F.flash < 160) { g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = `rgba(255,238,205,${(1 - (now - F.flash) / 160) * 0.17})`; g.fillRect(0, 0, fw2, fh2); g.restore(); }   // the flash of a big blast
   }
 
   function drawStruct(g, s, now) {
