@@ -3774,7 +3774,7 @@
         poly(g, p, "#0e1620", null, 0);
         g.strokeStyle = "rgba(188,216,236,0.45)"; g.lineWidth = 0.8;
         g.beginPath(); g.moveTo(p[0][0], p[0][1]); g.lineTo((p[1][0] + p[3][0]) / 2, (p[1][1] + p[3][1]) / 2); g.lineTo(p[2][0], p[2][1]); g.stroke();
-      } else poly(g, p, col, null, 0);
+      } else poly(g, p, (r * 13 + c * 7 + (r % 2) * 3) % 7 === 0 ? "#33404f" : col, null, 0);   // a few windows are dark/unlit for variety
     }
   }
   function cuboid(g, gx, gy, w, d, h, color, opts = {}) {
