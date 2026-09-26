@@ -4684,6 +4684,10 @@
     for (let k = 0; k < 4; k++) { const cx = ((k * 0.31 + 0.1) * fw2 + now / 90 % (fw2 + 160)) % (fw2 + 160) - 80, cy = horizon * (0.22 + k * 0.17); g.beginPath(); g.ellipse(cx, cy, 38, 15, 0, 0, Math.PI * 2); g.ellipse(cx + 28, cy + 5, 26, 11, 0, 0, Math.PI * 2); g.ellipse(cx - 26, cy + 6, 22, 10, 0, 0, Math.PI * 2); g.fill(); }
     g.strokeStyle = "rgba(38,58,78,0.5)"; g.lineWidth = 1.4;                        // a few birds drifting past
     for (let k = 0; k < 5; k++) { const bx = (now / 38 + k * 170) % (fw2 + 80) - 40, by = horizon * 0.28 + k * 13 + Math.sin(now / 520 + k) * 4, fl = 3.5 + Math.sin(now / 150 + k * 1.3) * 2.5; g.beginPath(); g.moveTo(bx - fl, by + 2); g.lineTo(bx, by - 2); g.lineTo(bx + fl, by + 2); g.stroke(); }
+    if (!mood.rain) { const at = (now % 64000) / 64000, ax = fw2 + 40 - at * (fw2 + 90), ay = horizon * 0.15;   // an airliner high overhead
+      if (!mood.night) { const ct = g.createLinearGradient(ax, ay, ax + 100, ay); ct.addColorStop(0, "rgba(255,255,255,0.32)"); ct.addColorStop(1, "rgba(255,255,255,0)"); g.strokeStyle = ct; g.lineWidth = 2.4; g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax + 100, ay - 3); g.stroke(); }   // a contrail fading out behind
+      g.fillStyle = mood.night ? "rgba(44,56,80,0.9)" : "rgba(72,90,112,0.75)"; g.beginPath(); g.moveTo(ax - 7, ay); g.lineTo(ax + 5, ay - 1.4); g.lineTo(ax + 5, ay + 1.4); g.closePath(); g.fill(); g.fillRect(ax - 3, ay - 3, 1.6, 6);   // fuselage + wings
+      if (mood.night && Math.floor(now / 700) % 2 === 0) { g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,70,70,0.95)"; g.beginPath(); g.arc(ax - 7, ay, 1.5, 0, Math.PI * 2); g.fill(); g.restore(); } }   // blinking beacon at night
     // ---- A far mountain range, then hills at the horizon (hazed layers) ----
     { const mc = mix(gc, mood.night ? "#2a3556" : "#dcedfa", mood.night ? 0.6 : 0.82), rh = seeded(F.i * 17 + 3);
       g.fillStyle = mc; g.beginPath(); g.moveTo(0, horizon + 30);
