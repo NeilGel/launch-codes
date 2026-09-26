@@ -2508,6 +2508,11 @@
         g.strokeStyle = "#2a3035"; g.lineWidth = 4.2 * lw; g.stroke();
         g.strokeStyle = "rgba(232,210,122,0.85)"; g.lineWidth = 0.45 * lw; g.setLineDash([2.4 * lw, 2 * lw]); g.lineDashOffset = -(now / 90) % (4.4 * lw); g.stroke(); g.setLineDash([]); g.lineDashOffset = 0;
       }
+      if (!sat) for (let ri = 0; ri < Math.min(4, net.roads.length); ri++) {   // cars trundling along the intact roads
+        const [a, b] = net.roads[ri]; if (broken(a) || broken(b)) continue;
+        const [ax, ay] = P[a], [bx, by] = P[b], t = ((now / 6500 + ri * 0.37) % 1), cx = ax + (bx - ax) * t, cy = ay + (by - ay) * t, ang = Math.atan2(by - ay, bx - ax);
+        g.save(); g.translate(cx, cy); g.rotate(ang); g.fillStyle = ri % 2 ? "#d05656" : "#e6e8ea"; g.strokeStyle = "#12202f"; g.lineWidth = 0.4 * lw; g.fillRect(-2 * lw, -1.3 * lw, 4 * lw, 2.6 * lw); g.strokeRect(-2 * lw, -1.3 * lw, 4 * lw, 2.6 * lw); g.restore();
+      }
       // Railway: rails and sleepers
       if (net.rail.length > 1) {
         g.beginPath(); net.rail.forEach((kk, n) => (n ? g.lineTo(...P[kk]) : g.moveTo(...P[kk])));
