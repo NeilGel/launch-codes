@@ -4023,6 +4023,25 @@
     const c = isoPt(gx, gy, h * 0.4); g.strokeStyle = shade(col, 0.78); g.lineWidth = 0.7;          // faint facet rings
     for (let k = 1; k <= 2; k++) { g.beginPath(); g.ellipse(c[0], c[1] - k * rad * fcam.th * fcam.s * 0.5, rad * fcam.tw * fcam.s * (1 - k * 0.28), rad * fcam.th * fcam.s * (1 - k * 0.28), 0, 0, Math.PI * 2); g.stroke(); }
   }
+  function drawTent(g, gx, gy, w, d, h, col) {                                                     // a ridge tent
+    const apexF = isoPt(gx + w / 2, gy, h), apexB = isoPt(gx + w / 2, gy + d, h);
+    const fl = isoPt(gx, gy, 0), fr = isoPt(gx + w, gy, 0), bl = isoPt(gx, gy + d, 0), br = isoPt(gx + w, gy + d, 0);
+    poly(g, [fl, bl, apexB, apexF], shade(col, 0.78), OUT, lw2());                                 // left slope
+    poly(g, [fr, br, apexB, apexF], shade(col, 1.06), OUT, lw2());                                 // right slope
+    poly(g, [fl, fr, apexF], shade(col, 0.92), OUT, lw2());                                        // gable
+  }
+  function drawOpenSilo(g, gx, gy, rad, h, col) {                                                  // a silo with its blast door slid open and a missile riding up
+    cylinder(g, gx, gy, rad, h, col);
+    const top = isoPt(gx, gy, h), R = rad * fcam.tw * fcam.s;
+    g.save(); g.translate(top[0], top[1]); g.scale(1, 0.5);
+    g.fillStyle = "#14181a"; g.beginPath(); g.arc(0, 0, R * 0.72, 0, Math.PI * 2); g.fill();       // open shaft
+    g.fillStyle = shade(col, 0.6); g.beginPath(); g.arc(R * 0.95, 0, R * 0.7, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke();   // door slid aside
+    g.restore();
+    cylinder(g, gx, gy, rad * 0.42, 0.5, "#e9edf1", { z: h - 0.2 });                               // missile body
+    const mseg = 10, nb = [], apex = isoPt(gx, gy, h - 0.2 + 0.5 + rad * 0.85);
+    for (let i = 0; i <= mseg; i++) { const a = i / mseg * Math.PI * 2; nb.push(isoPt(gx + Math.cos(a) * rad * 0.4, gy + Math.sin(a) * rad * 0.4, h - 0.2 + 0.5)); }
+    for (let i = 0; i < mseg; i++) poly(g, [nb[i], nb[i + 1], apex], shade("#d94b3a", i < mseg / 2 ? 1.05 : 0.78), OUT, lw2());   // nose cone
+  }
   function drawFactoryHall(g, s, col) {
     const w = s.w, d = s.d, h = s.h, hurt = s.hp < s.max, n = 4;
     cuboid(g, s.gx, s.gy, w, d, h, col, { win: s.opts.win, broken: hurt ? 5 : 0 });
@@ -4055,13 +4074,14 @@
       S("launcher", 0.2, 1.4, 1.0, 0.8, 0.9, "#5a6350"), S("launcher", 2.0, 0.6, 1.0, 0.8, 0.9, "#5a6350"),
       S("box", -2.0, -1.4, 1.1, 0.9, 0.9, "#7c8470") ] }),
     base:    (r) => ({ ground: "concrete", s: [
-      S("box", -1.8, -1.2, 2.4, 1.0, 1.1, "#5c6b45", { win: "#cfe0a0", hp: 3 }), S("box", -1.8, 0.4, 2.4, 1.0, 1.1, "#5c6b45", { win: "#cfe0a0" }),
-      S("vehicle", 1.4, -1.2, 1.0, 0.7, 0.5, "#556146"), S("vehicle", 1.8, 0.2, 1.0, 0.7, 0.5, "#556146"),
-      S("vehicle", 1.2, 1.4, 1.0, 0.7, 0.5, "#556146"), S("tower", -2.4, 1.6, 0.6, 0.6, 2.6, "#6a7752") ] }),
+      S("box", -2.4, -1.3, 2.4, 1.0, 1.1, "#5c6b45", { win: "#cfe0a0", roof: "#47543a", hp: 3 }), S("box", -2.4, 0.2, 2.4, 1.0, 1.1, "#5c6b45", { win: "#cfe0a0", roof: "#47543a" }),
+      S("tent", 0.5, -1.5, 0.95, 0.7, 0.6, "#6b7550"), S("tent", 1.7, -1.5, 0.95, 0.7, 0.6, "#6b7550"),
+      S("vehicle", 1.0, 0.2, 1.0, 0.7, 0.5, "#556146"), S("vehicle", 2.1, 0.6, 1.0, 0.7, 0.5, "#556146"),
+      S("helipad", 0.8, 1.7, 1.1, 1.1, 0.05, "#5c6b45"), S("tower", -2.9, 1.6, 0.6, 0.6, 2.8, "#6a7752") ] }),
     silo:    (r) => ({ ground: "concrete", s: [
-      S("silo", -1.4, -1.0, 0.7, 0.7, 1.9, "#9aa4ad", { hp: 3 }), S("silo", 0.4, -1.4, 0.7, 0.7, 1.9, "#9aa4ad", { hp: 3 }),
+      S("opensilo", -1.4, -1.0, 0.75, 0.75, 1.9, "#9aa4ad", { hp: 3 }), S("silo", 0.4, -1.4, 0.7, 0.7, 1.9, "#9aa4ad", { hp: 3 }),
       S("silo", 1.6, 0.2, 0.7, 0.7, 1.9, "#9aa4ad", { hp: 3 }), S("silo", -0.6, 1.2, 0.7, 0.7, 1.9, "#9aa4ad", { hp: 3 }),
-      S("box", -2.4, 1.2, 1.3, 1.0, 0.9, "#7d8790") ] }),
+      S("box", -2.5, 1.2, 1.4, 1.1, 1.0, "#7d8790", { win: "#cfe0a0" }) ] }),
     air:     (r) => ({ ground: "tarmac", s: [
       S("runway", -3, -0.6, 6, 1.2, 0.1, "#4a4f58"), S("hangar", -2.2, -2.0, 1.8, 1.3, 1.3, "#8390a0", { hp: 3 }),
       S("hangar", 0.2, -2.0, 1.8, 1.3, 1.3, "#8390a0", { hp: 3 }), S("plane", -1.2, 1.0, 1.6, 1.6, 0.4, "#d7dee6"),
@@ -4072,9 +4092,9 @@
       S("crane", -2.5, -1.4, 0.6, 0.6, 2.7, "#e0a63a"), S("containers", 0.5, 0.3, 3, 2, 2, "#7c8894", { hp: 2 }),
       S("box", 2.5, 1.7, 1.3, 1.0, 1.2, "#9aa2a8", { win: "#bfe6ff" }) ] }),
     space:   (r) => ({ ground: "concrete", s: [
-      S("gantry", -0.6, -0.6, 1.2, 1.2, 4.4, "#cf5b3a", { hp: 3 }), S("rocket", 0, 0, 0.45, 0.45, 3.8, "#eef2f6", { hp: 3 }),
-      S("box", -2.4, 0.6, 1.6, 1.4, 1.2, "#aab4be", { win: "#bfe6ff" }), S("dish", 2.0, -1.4, 0.8, 1.8, 0, "#d5dde4"),
-      S("cyl", 2.2, 1.2, 0.5, 0.5, 1.4, "#c2cad2") ] }),
+      S("gantry", -0.7, -0.7, 1.3, 1.3, 4.6, "#cf5b3a", { hp: 3 }), S("rocket", 0, 0, 0.45, 0.45, 3.9, "#eef2f6", { hp: 3 }),
+      S("box", -2.6, 0.7, 1.7, 1.4, 1.2, "#aab4be", { win: "#bfe6ff", hp: 2 }), S("dish", 2.2, -1.4, 0.8, 1.8, 0, "#d5dde4"),
+      S("tank", 2.2, 1.1, 0.55, 0.55, 1.5, "#c2cad2"), S("tank", 3.0, 1.5, 0.45, 0.45, 1.1, "#e0a63a") ] }),
     factory: (r) => ({ ground: "concrete", s: [
       S("factoryhall", -2.7, -1.5, 3.3, 2.7, 1.4, "#9a8f80", { win: "#ffd98a", hp: 3 }),
       S("chimney", 0.9, -1.7, 0.4, 0.4, 3.7, "#b45b45", { hp: 3 }), S("chimney", 1.8, -1.0, 0.34, 0.34, 3.0, "#b45b45"),
@@ -4085,8 +4105,9 @@
       S("box", -2.4, 1.2, 2.2, 1.1, 1.1, "#b3bbc2", { win: "#ffd98a", roof: "#8f979e", hp: 2 }),
       S("switchyard", 1.0, -0.6, 2.2, 2.6, 0, "#9aa2aa", { hp: 2 }) ] }),
     rail:    (r) => ({ ground: "concrete", s: [
-      S("box", -2.4, -1.0, 2.4, 1.4, 1.3, "#b57f4a", { win: "#ffe08a", roof: "#8a5f38", hp: 3 }), S("train", 0.6, -0.7, 3.4, 0.7, 0.7, "#3f6ea0", { hp: 2 }),
-      S("box", 0.4, 1.0, 1.0, 0.6, 0.5, "#9a8f80"), S("pole", -0.8, 0.8, 0.16, 0.16, 1.8, "#c0c4c8", { signal: true }) ] }),
+      S("box", -2.7, -1.2, 2.7, 1.5, 1.4, "#b57f4a", { win: "#ffe08a", roof: "#8a5f38", hp: 3 }),
+      S("platform", -2.6, 0.55, 5.2, 0.5, 0.18, "#b7bcc2"), S("train", 0.4, -0.85, 3.6, 0.7, 0.7, "#3f6ea0", { hp: 2 }),
+      S("pole", 2.4, -0.95, 0.14, 0.14, 1.9, "#c0c4c8"), S("pole", -1.0, 1.05, 0.16, 0.16, 1.8, "#c0c4c8", { signal: true }) ] }),
     airport: (r) => ({ ground: "tarmac", s: [
       S("runway", -3, 0.8, 6, 1.2, 0.1, "#4a4f58"), S("box", -2.2, -1.6, 3.2, 1.4, 1.3, "#c8ccd2", { win: "#bfe6ff", hp: 3 }),
       S("tower", 1.6, -1.8, 0.7, 0.7, 3.4, "#9aa2aa", { win: "#bfe6ff" }), S("plane", -1.0, -0.2, 1.8, 1.8, 0.5, "#eef2f6", { hp: 2 }),
@@ -4511,6 +4532,9 @@
       case "containers": drawContainers(g, s.gx, s.gy, s.w, s.d, s.h); break;
       case "radome": drawRadome(g, s.gx, s.gy, s.w, h, col); break;
       case "helipad": drawHelipad(g, s.gx, s.gy, s.w); break;
+      case "tent": drawTent(g, s.gx, s.gy, s.w, s.d, h, col); break;
+      case "opensilo": drawOpenSilo(g, s.gx, s.gy, s.w, h, col); break;
+      case "platform": { cuboid(g, s.gx, s.gy, s.w, s.d, s.h, col); const a = isoPt(s.gx, s.gy + 0.06, s.h + 0.01), b = isoPt(s.gx + s.w, s.gy + 0.06, s.h + 0.01); g.strokeStyle = "#e8c34a"; g.lineWidth = lw2() * 1.2; g.setLineDash([7 * fcam.s, 5 * fcam.s]); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.setLineDash([]); } break;
       case "fountain": { const cx = s.gx + s.w / 2, cy = s.gy + s.d / 2, R = s.w * 0.5;
         cylinder(g, cx, cy, R, 0.2, col);                                            // basin wall
         const top = isoPt(cx, cy, 0.2); g.save(); g.translate(top[0], top[1]); g.scale(1, 0.5);
