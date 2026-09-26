@@ -4544,7 +4544,10 @@
     cuboid(g, s.gx, s.gy, w, d, h, "#4c5840");
     cuboid(g, s.gx + 0.12, s.gy + 0.05, w * 0.46, d - 0.1, h * 0.7, "#5c6b45", { z: h, win: "#bfe6ff" });
     const beam = isoPt(s.gx + (s.fwd > 0 ? w : 0), s.gy + d / 2, h * 0.5);   // headlamp glow, forward
-    g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,244,190,0.5)"; g.beginPath(); g.arc(beam[0] + (s.fwd > 0 ? 5 : -5), beam[1] + 2, 5 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
+    g.save(); g.globalCompositeOperation = "lighter";
+    if (facNight) { const p0 = isoPt(s.gx + (s.fwd > 0 ? w : 0), s.gy + d / 2, 0.08), p1 = isoPt(s.gx + (s.fwd > 0 ? w + 1.4 : -1.4), s.gy + d / 2, 0.08), dx = p1[0] - p0[0], dy = p1[1] - p0[1], m = Math.hypot(dx, dy) || 1, ux = dx / m, uy = dy / m, L = 44 * fcam.s, W = 14 * fcam.s;
+      g.fillStyle = "rgba(255,244,190,0.09)"; g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p0[0] + ux * L - uy * W, p0[1] + uy * L + ux * W); g.lineTo(p0[0] + ux * L + uy * W, p0[1] + uy * L - ux * W); g.closePath(); g.fill(); }
+    g.fillStyle = "rgba(255,244,190,0.55)"; g.beginPath(); g.arc(beam[0] + (s.fwd > 0 ? 5 : -5), beam[1] + 2, 5 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
   }
   function drawTugboat(g, s, now) {                                                                 // a tug chugging across the harbour
     const gx = s.gx, gy = s.gy, wob = Math.sin(now / 500) * 0.015;
@@ -4559,9 +4562,11 @@
   }
   function drawRoadCar(g, s, now) {                                                                 // a car cruising the approach road
     softShadow(g, s.gx, s.gy, 0.5, 0.32);
+    if (facNight) { const p0 = isoPt(s.gx + (s.fwd > 0 ? 0.5 : 0), s.gy + 0.16, 0.07), p1 = isoPt(s.gx + (s.fwd > 0 ? 0.5 : 0), s.gy + 0.16 + s.fwd * 1.4, 0.07), dx = p1[0] - p0[0], dy = p1[1] - p0[1], m = Math.hypot(dx, dy) || 1, ux = dx / m, uy = dy / m, L = 46 * fcam.s, W = 15 * fcam.s;
+      g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,244,190,0.09)"; g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p0[0] + ux * L - uy * W, p0[1] + uy * L + ux * W); g.lineTo(p0[0] + ux * L + uy * W, p0[1] + uy * L - ux * W); g.closePath(); g.fill(); g.restore(); }   // headlight beam
     cuboid(g, s.gx, s.gy, 0.5, 0.32, 0.17, s.col);
     cuboid(g, s.gx + 0.11, s.gy + 0.05, 0.28, 0.22, 0.14, shade(s.col, 1.18), { z: 0.17, win: "#bfe6ff" });
-    const f = isoPt(s.gx + (s.fwd > 0 ? 0.5 : 0), s.gy + 0.16, 0.08); g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = s.fwd > 0 ? "rgba(255,244,190,0.6)" : "rgba(255,90,70,0.6)"; g.beginPath(); g.arc(f[0], f[1], 3 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
+    const f = isoPt(s.gx + (s.fwd > 0 ? 0.5 : 0), s.gy + 0.16, 0.08); g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = s.fwd > 0 ? "rgba(255,244,190,0.7)" : "rgba(255,90,70,0.7)"; g.beginPath(); g.arc(f[0], f[1], 3 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
   }
   function drawGatehouse(g, s, now) {                                                               // a guard booth and a boom barrier at the gateway
     const gx = s.gx, gy = s.gy;
