@@ -3751,11 +3751,16 @@
   }
 
   // ---- Drawing primitives (everything is built from these) ----
-  function windows(g, bl, br, tr, tl, cols, rows, col) {
+  function windows(g, bl, br, tr, tl, cols, rows, col, broken) {
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
       const u0 = (c + 0.22) / cols, u1 = (c + 0.78) / cols, v0 = (r + 0.22) / rows, v1 = (r + 0.78) / rows;
       const bA = lerp2(bl, br, u0), bB = lerp2(bl, br, u1), tA = lerp2(tl, tr, u0), tB = lerp2(tl, tr, u1);
-      poly(g, [lerp2(bA, tA, v0), lerp2(bB, tB, v0), lerp2(bB, tB, v1), lerp2(bA, tA, v1)], col, null, 0);
+      const p = [lerp2(bA, tA, v0), lerp2(bB, tB, v0), lerp2(bB, tB, v1), lerp2(bA, tA, v1)];
+      if (broken && (r * 7 + c * 3 + broken) % 5 < 3) {                 // this pane blew out: dark, jagged crack
+        poly(g, p, "#0e1620", null, 0);
+        g.strokeStyle = "rgba(188,216,236,0.45)"; g.lineWidth = 0.8;
+        g.beginPath(); g.moveTo(p[0][0], p[0][1]); g.lineTo((p[1][0] + p[3][0]) / 2, (p[1][1] + p[3][1]) / 2); g.lineTo(p[2][0], p[2][1]); g.stroke();
+      } else poly(g, p, col, null, 0);
     }
   }
   function cuboid(g, gx, gy, w, d, h, color, opts = {}) {
@@ -3768,8 +3773,8 @@
     gradPoly(g, Lf, shade(color, 0.66), shade(color, 0.4), line, w2);   // darker toward the ground = ambient occlusion
     gradPoly(g, Rf, shade(color, 0.92), shade(color, 0.62), line, w2);
     if (opts.win) {
-      windows(g, Lf[0], Lf[1], Lf[2], Lf[3], Math.max(2, Math.round(w * 2)), Math.max(2, Math.round(h * 1.3)), opts.win);
-      windows(g, Rf[0], Rf[1], Rf[3], Rf[2], Math.max(2, Math.round(d * 2)), Math.max(2, Math.round(h * 1.3)), opts.win);
+      windows(g, Lf[0], Lf[1], Lf[2], Lf[3], Math.max(2, Math.round(w * 2)), Math.max(2, Math.round(h * 1.3)), opts.win, opts.broken);
+      windows(g, Rf[0], Rf[1], Rf[3], Rf[2], Math.max(2, Math.round(d * 2)), Math.max(2, Math.round(h * 1.3)), opts.win, opts.broken);
     }
     if (opts.base && h > 1.2) {                                        // a glassy ground-floor / shopfront band
       const gh = Math.min(0.5, h * 0.26), t2 = (x, y) => isoPt(gx + x, gy + y, z + gh);
@@ -3871,6 +3876,47 @@
     for (let lv = 0; lv <= 3; lv++) { const z = h * lv / 3; g.beginPath(); for (let i = 0; i < 4; i++) { const p = isoPt(gx + c[i][0], gy + c[i][1], z); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.closePath(); g.stroke(); }
   }
 
+  // ---- Bridge: a proper cable-stayed crossing — a piered roadway deck, twin pylons, fanned stay-cables, traffic ----
+  const BR = { z: 1.05 };                                                             // height of the deck surface above the water
+  function bridgePier(g, gx, gy, z) {                                                 // a concrete pier standing in the water up to the deck
+    cuboid(g, gx - 0.26, gy - 0.18, 0.52, 0.5, z, "#8f97a0");
+    const b = isoPt(gx, gy + 0.22, 0);                                                // a ripple where it meets the water
+    g.strokeStyle = "rgba(255,255,255,0.45)"; g.lineWidth = lw2() * 0.7;
+    g.beginPath(); g.ellipse(b[0], b[1] + 3, 17 * fcam.s, 6 * fcam.s, 0, 0, Math.PI * 2); g.stroke();
+  }
+  function bridgeDeck(g, s, now) {
+    const x0 = s.gx, w = s.w, y = s.gy, d = s.d, z = BR.z, hurt = s.hp < s.max, col = hurt ? shade(s.color, 0.9) : s.color;
+    for (let px = x0 + 0.7; px < x0 + w - 0.3; px += 1.55) bridgePier(g, px, y + d / 2, z - 0.18);   // piers into the water
+    cuboid(g, x0, y, w, d, 0.2, col, { z: z - 0.2 });                                 // the roadway slab
+    const a = isoPt(x0 + 0.3, y + d / 2, z), b = isoPt(x0 + w - 0.3, y + d / 2, z);   // centre lane markings
+    g.save(); g.strokeStyle = "#f0d24a"; g.lineWidth = 2 * fcam.s; g.setLineDash([9 * fcam.s, 8 * fcam.s]);
+    g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.setLineDash([]); g.restore();
+    for (const edge of [y, y + d]) {                                                 // guard railings down both sides
+      g.strokeStyle = "#d3dae1"; g.lineWidth = lw2() * 0.85;
+      const r0 = isoPt(x0, edge, z + 0.24), r1 = isoPt(x0 + w, edge, z + 0.24);
+      g.beginPath(); g.moveTo(r0[0], r0[1]); g.lineTo(r1[0], r1[1]); g.stroke();
+      for (let px = x0; px <= x0 + w; px += 0.5) { const p0 = isoPt(px, edge, z), p1 = isoPt(px, edge, z + 0.24); g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke(); }
+    }
+    for (const [cc, u] of [["#c94b4b", 0.15], ["#eef0f2", 0.55], ["#3f6ea0", 0.83]]) {   // traffic creeping across
+      const cx = x0 + 0.7 + ((u + now / 11000) % 1) * (w - 1.9);
+      cuboid(g, cx, y + d * 0.5 - 0.17, 0.5, 0.32, 0.22, cc, { z });
+    }
+  }
+  function bridgePylon(g, s, now) {
+    const gx = s.gx + s.w / 2, gy = s.gy + s.d / 2, topZ = s.h, deckZ = BR.z + 0.02, hurt = s.hp < s.max, col = hurt ? shade(s.color, 0.9) : s.color;
+    bridgePier(g, gx, gy, deckZ);
+    const legDx = 0.17;
+    for (const dx of [-legDx, legDx]) cuboid(g, gx + dx - 0.06, gy - 0.06, 0.12, 0.12, topZ, col);   // twin legs
+    cuboid(g, gx - legDx - 0.06, gy - 0.06, legDx * 2 + 0.12, 0.13, 0.17, shade(col, 0.9), { z: topZ * 0.72 });   // crossbeam
+    const top = isoPt(gx, gy, topZ * 0.95);                                           // fanned stay-cables to the deck each side
+    g.strokeStyle = "#aab4bf"; g.lineWidth = Math.max(1, lw2() * 0.55);
+    for (const side of [-1, 1]) for (let k = 1; k <= 4; k++) {
+      const dp = isoPt(gx + side * (0.45 + k * 0.52), gy, deckZ);
+      g.beginPath(); g.moveTo(top[0], top[1]); g.lineTo(dp[0], dp[1]); g.stroke();
+    }
+    beacon(g, top[0], top[1], now, (gx * 5) | 0);
+  }
+
   // ---- The 14 facility scenes. Each returns destructible structures on a themed plate. ----
   const S = (shape, gx, gy, w, d, h, color, opts) => ({ shape, gx, gy, w, d, h, color, opts: opts || {}, hp: (opts && opts.hp) || 2, max: (opts && opts.hp) || 2 });
   const scatter = (rng, n, kinds) => { const out = []; for (let k = 0; k < n; k++) { const a = rng() * Math.PI * 2, r = 1.6 + rng() * 2.2; out.push(kinds(Math.cos(a) * r, Math.sin(a) * r, rng, k)); } return out; };
@@ -3928,8 +3974,9 @@
       S("tower", 1.6, -1.8, 0.7, 0.7, 3.4, "#9aa2aa", { win: "#bfe6ff" }), S("plane", -1.0, -0.2, 1.8, 1.8, 0.5, "#eef2f6", { hp: 2 }),
       S("plane", 1.2, 0.0, 1.8, 1.8, 0.5, "#eef2f6") ] }),
     bridge:  (r) => ({ ground: "water", s: [
-      S("span", -3, -0.4, 6, 0.9, 0.6, "#c9ccd0", { hp: 4 }), S("tower", -1.4, -0.5, 0.5, 1.0, 3.2, "#d64b63", { hp: 3 }),
-      S("tower", 1.0, -0.5, 0.5, 1.0, 3.2, "#d64b63", { hp: 3 }), S("ship", 0.2, 1.8, 2.0, 0.8, 0.8, "#8894a0") ] }),
+      S("deck", -3.3, -0.9, 6.6, 0.8, 0, "#c2c8cf", { hp: 5 }),
+      S("brpylon", -1.85, -0.9, 0.5, 0.8, 3.8, "#d64b63", { hp: 3 }), S("brpylon", 0.85, -0.9, 0.5, 0.8, 3.8, "#d64b63", { hp: 3 }),
+      S("ship", 0.2, 2.0, 2.2, 0.9, 0.9, "#8894a0") ] }),
   };
 
   // The countryside AROUND the facility: field patches and a wide scatter of trees/rocks so the compound
@@ -4025,9 +4072,21 @@
     if (s.dead || s.collapsing) return;
     const c = targetScreen(s);
     s.hp--; s.hitT = performance.now(); s.burning = performance.now();
-    if (s.hp <= 0) { s.collapsing = performance.now(); boomFac(F, c[0], c[1], 1); F.shake = Math.min(18, F.shake + 12); syncFacDamage(F); }
+    if (s.opts && s.opts.win) shatterGlass(F, c[0], c[1], s.hp <= 0 ? 18 : 9);        // its windows blow out
+    if (s.hp <= 0) { s.collapsing = performance.now(); boomFac(F, c[0], c[1], 1); spawnChunks(F, c[0], c[1], s.color, s); F.shake = Math.min(20, F.shake + 13); syncFacDamage(F); }
     else { boomFac(F, c[0], c[1], 0.4); F.shake = Math.min(14, F.shake + 5); }
     renderFacUi();
+  }
+  // A spray of glass shards when a windowed building takes a hit.
+  function shatterGlass(F, x, y, n) {
+    for (let k = 0; k < n; k++) { const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 170;
+      F.fx.push({ kind: "glass", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 55, t0: performance.now(), dur: 600 + Math.random() * 500, s: 2 + Math.random() * 3, rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 22 }); }
+  }
+  // Lumps of masonry flung off as a structure comes down.
+  function spawnChunks(F, x, y, color, s) {
+    const n = 5 + Math.floor(Math.random() * 4);
+    for (let k = 0; k < n; k++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.5, sp = 60 + Math.random() * 150;
+      F.fx.push({ kind: "chunk", x, y: y - 6, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30, t0: performance.now(), dur: 900 + Math.random() * 550, sz: 4 + Math.random() * 7, rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 12, col: color }); }
   }
   function syncFacDamage(F) {
     const c = C[F.i], site = G.fac[F.i] && G.fac[F.i][F.k];
@@ -4139,18 +4198,32 @@
     const recoil = a.fireT && now - a.fireT < 240 ? 1 - (now - a.fireT) / 240 : 0;
     const tur = attackerTurret(a), ctr = centreScreen();
     const ang = a.angle != null ? a.angle : Math.atan2(ctr[1] - tur[1], ctr[0] - tur[0]);
-    softShadow(g, a.gx - 0.05, a.gy, a.unit === "arty" ? 1.0 : 0.85, 0.6);
-    const bodyH = a.unit === "arty" ? 0.32 : 0.28, hullW = a.unit === "arty" ? 0.95 : 0.82;
-    // caterpillar tracks
-    cuboid(g, a.gx, a.gy - 0.04, hullW, 0.16, bodyH * 0.7, "#20251c");
-    cuboid(g, a.gx, a.gy + 0.42, hullW, 0.16, bodyH * 0.7, "#20251c");
+    const arty = a.unit === "arty";
+    softShadow(g, a.gx - 0.05, a.gy, arty ? 1.05 : 0.9, 0.62);
+    const bodyH = arty ? 0.34 : 0.3, hullW = arty ? 1.0 : 0.86;
+    cuboid(g, a.gx, a.gy - 0.04, hullW, 0.16, bodyH * 0.66, "#1c211a");                   // caterpillar tracks
+    cuboid(g, a.gx, a.gy + 0.42, hullW, 0.16, bodyH * 0.66, "#1c211a");
+    g.fillStyle = "#33392e"; g.strokeStyle = OUT; g.lineWidth = 1;                        // road wheels on the near track
+    const nW = arty ? 6 : 5;
+    for (let k = 0; k < nW; k++) { const wp = isoPt(a.gx + 0.12 + k * (hullW - 0.24) / (nW - 1), a.gy + 0.5, 0.05); g.beginPath(); g.ellipse(wp[0], wp[1], 4.2 * fcam.s, 3 * fcam.s, 0, 0, Math.PI * 2); g.fill(); g.stroke(); }
     cuboid(g, a.gx + 0.05, a.gy + 0.06, hullW - 0.1, 0.42, bodyH, a.col);                 // hull
-    cuboid(g, a.gx + 0.24, a.gy + 0.14, a.unit === "arty" ? 0.42 : 0.4, 0.32, bodyH * 0.85, shade(a.col, 1.12), { z: bodyH });   // turret
-    const bx = tur[0] - Math.cos(ang) * recoil * 6, by = tur[1] - Math.sin(ang) * recoil * 6;
-    const len = (a.unit === "arty" ? 30 : 22) * fcam.s, tip = [bx + Math.cos(ang) * len, by + Math.sin(ang) * len];
-    g.strokeStyle = "#2b312a"; g.lineWidth = lw2() * (a.unit === "arty" ? 2.8 : 2.1); g.lineCap = "round";
-    g.beginPath(); g.moveTo(bx, by); g.lineTo(tip[0], tip[1]); g.stroke(); g.lineCap = "butt";
-    if (recoil > 0.35) { g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = `rgba(255,220,130,${recoil})`; g.beginPath(); g.arc(tip[0], tip[1], 11 * fcam.s * recoil, 0, Math.PI * 2); g.fill(); g.restore(); }
+    cuboid(g, a.gx + hullW - 0.18, a.gy + 0.08, 0.16, 0.38, bodyH * 0.72, shade(a.col, 1.2));   // sloped glacis at the front
+    if (arty) cuboid(g, a.gx - 0.14, a.gy + 0.15, 0.14, 0.24, 0.12, shade(a.col, 0.78));  // recoil spade dug in at the rear
+    cuboid(g, a.gx + 0.24, a.gy + 0.14, arty ? 0.46 : 0.42, 0.32, bodyH * 0.85, shade(a.col, 1.12), { z: bodyH });   // turret
+    cuboid(g, a.gx + 0.31, a.gy + 0.2, 0.16, 0.16, 0.1, shade(a.col, 1.26), { z: bodyH + bodyH * 0.85 });            // commander's cupola
+    const bx = tur[0] - Math.cos(ang) * recoil * 7, by = tur[1] - Math.sin(ang) * recoil * 7;
+    const len = (arty ? 34 : 24) * fcam.s, tip = [bx + Math.cos(ang) * len, by + Math.sin(ang) * len];
+    g.strokeStyle = "#23281f"; g.lineCap = "round";
+    g.lineWidth = lw2() * (arty ? 3 : 2.3); g.beginPath(); g.moveTo(bx, by); g.lineTo(tip[0], tip[1]); g.stroke();     // gun barrel
+    const mb0 = [bx + Math.cos(ang) * len * 0.82, by + Math.sin(ang) * len * 0.82];                                   // fat muzzle brake at the tip
+    g.lineWidth = lw2() * (arty ? 4.6 : 3.6); g.beginPath(); g.moveTo(mb0[0], mb0[1]); g.lineTo(tip[0], tip[1]); g.stroke(); g.lineCap = "butt";
+    if (recoil > 0.3) {                                                                   // muzzle flash: glow + starburst
+      g.save(); g.globalCompositeOperation = "lighter";
+      g.fillStyle = `rgba(255,225,140,${recoil})`; g.beginPath(); g.arc(tip[0], tip[1], 13 * fcam.s * recoil, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = `rgba(255,240,180,${recoil})`; g.lineWidth = 2 * fcam.s;
+      for (let k = 0; k < 6; k++) { const fa = ang + (k - 2.5) * 0.32; g.beginPath(); g.moveTo(tip[0], tip[1]); g.lineTo(tip[0] + Math.cos(fa) * 16 * fcam.s * recoil, tip[1] + Math.sin(fa) * 16 * fcam.s * recoil); g.stroke(); }
+      g.restore();
+    }
   }
   // ---- Fire and elegant collapse ----
   function facFlame(g, x, y, scl, now, seed) {
@@ -4162,17 +4235,23 @@
     }
     g.restore();
   }
-  function collapseDraw(g, s, now) {                          // a building sinking into its own dust
-    const t = clamp((now - s.collapsing) / 780, 0, 1), sink = t * t;
-    const w = s.w || 1, d = s.d || 1, h = Math.max(0.05, (s.h || 2) * (1 - sink * 0.92));
-    if (s.shape === "silo" || s.shape === "cyl" || s.shape === "chimney" || s.shape === "rocket") cylinder(g, s.gx, s.gy, s.w, h, shade(s.color, 0.7 + 0.3 * (1 - t)));
-    else cuboid(g, s.gx, s.gy, w, d, h, shade(s.color, 0.55 + 0.35 * (1 - t)));
-    const base = isoPt(s.gx + w / 2, s.gy + d / 2, h);
-    facFlame(g, base[0], base[1], 1 + t, now, s.gx * 3);
-    // billowing dust
+  function collapseDraw(g, s, now) {                          // a building topples over and crushes down into its own dust
+    const t = clamp((now - s.collapsing) / 920, 0, 1);
+    const w = s.w || 1, d = s.d || 1, H = s.h || 2;
+    const cyl = s.shape === "silo" || s.shape === "cyl" || s.shape === "chimney" || s.shape === "rocket";
+    const dir = ((s.gx * 5 + s.gy * 3) | 0) % 2 ? 1 : -1;
+    const h = Math.max(0.08, H * (1 - t * 0.5));               // the standing part crushes down
+    const base0 = isoPt(s.gx + w / 2, s.gy + d / 2, 0);
     g.save();
-    for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2, rr = (10 + t * 34) * fcam.s, x = base[0] + Math.cos(a) * rr, y = isoPt(s.gx + w / 2, s.gy + d / 2, 0)[1] - t * 10 * fcam.s + Math.sin(a) * rr * 0.5;
-      g.fillStyle = `rgba(150,142,132,${(1 - t) * 0.5})`; g.beginPath(); g.arc(x, y, (6 + t * 9) * fcam.s, 0, Math.PI * 2); g.fill(); }
+    g.translate(base0[0], base0[1]); g.rotate(dir * t * t * 0.95); g.globalAlpha = Math.max(0, 1 - t * 0.82); g.translate(-base0[0], -base0[1]);   // tips over, accelerating, fading
+    if (cyl) cylinder(g, s.gx, s.gy, s.w, h, shade(s.color, 0.55 + 0.3 * (1 - t)));
+    else cuboid(g, s.gx, s.gy, w, d, h, shade(s.color, 0.5 + 0.35 * (1 - t)));
+    g.restore();
+    const base = isoPt(s.gx + w / 2, s.gy + d / 2, 0.12);
+    facFlame(g, base[0], base[1], 1.2 + t, now, s.gx * 3);
+    g.save();                                                  // billowing dust rolling out along the ground
+    for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, rr = (10 + t * 42) * fcam.s, x = base0[0] + Math.cos(a) * rr, y = base0[1] - t * 8 * fcam.s + Math.sin(a) * rr * 0.5;
+      g.fillStyle = `rgba(156,148,138,${(1 - t) * 0.5})`; g.beginPath(); g.arc(x, y, (7 + t * 11) * fcam.s, 0, Math.PI * 2); g.fill(); }
     g.restore();
     if (t >= 1) s.dead = true;
   }
@@ -4245,9 +4324,10 @@
     const wob = s.hitT && now - s.hitT < 160 ? Math.sin((now - s.hitT) / 20) * 0.06 * (1 - (now - s.hitT) / 160) : 0;
     const col = s.hitT && now - s.hitT < 120 ? "#ffffff" : s.color;
     const h = (s.h || 2) * (1 + wob);
+    const broken = s.hp < s.max ? (((s.gx * 13 + s.gy * 7) | 0) | 1) : 0;    // once hit, its glass is blown out
     switch (s.shape) {
-      case "tower": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, parapet: true, base: true }); if (s.opts.roof) cuboid(g, s.gx + 0.1, s.gy + 0.1, s.w - 0.2, s.d - 0.2, 0.2, s.opts.roof, { z: h }); break;
-      case "box": case "shed": case "dock": case "launcher": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, roof: s.opts.roof && shade(s.opts.roof, 1), door: s.shape !== "dock" && h > 1.1, parapet: s.shape === "box" && !s.opts.roof, base: s.shape === "box" && h > 1.4 }); if (s.shape === "launcher") { const t = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h); g.strokeStyle = "#2c3330"; g.lineWidth = lw2() * 1.6; for (let q = -1; q <= 1; q += 2) { g.beginPath(); g.moveTo(t[0] + q * 6, t[1]); g.lineTo(t[0] + q * 10, t[1] - 20 * fcam.s); g.stroke(); } } break;
+      case "tower": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, broken, parapet: true, base: true }); if (s.opts.roof) cuboid(g, s.gx + 0.1, s.gy + 0.1, s.w - 0.2, s.d - 0.2, 0.2, s.opts.roof, { z: h }); break;
+      case "box": case "shed": case "dock": case "launcher": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, broken, roof: s.opts.roof && shade(s.opts.roof, 1), door: s.shape !== "dock" && h > 1.1, parapet: s.shape === "box" && !s.opts.roof, base: s.shape === "box" && h > 1.4 }); if (s.shape === "launcher") { const t = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h); g.strokeStyle = "#2c3330"; g.lineWidth = lw2() * 1.6; for (let q = -1; q <= 1; q += 2) { g.beginPath(); g.moveTo(t[0] + q * 6, t[1]); g.lineTo(t[0] + q * 10, t[1] - 20 * fcam.s); g.stroke(); } } break;
       case "hangar": cuboid(g, s.gx, s.gy, s.w, s.d, h * 0.6, col); { const cz = h * 0.6; const a = isoPt(s.gx, s.gy + s.d / 2, cz), b = isoPt(s.gx + s.w, s.gy + s.d / 2, cz), ap = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, cz + h * 0.7); poly(g, [isoPt(s.gx, s.gy, cz), isoPt(s.gx + s.w, s.gy, cz), isoPt(s.gx + s.w / 2, s.gy, cz + h * 0.7)], shade(col, 1.1), OUT, lw2()); poly(g, [isoPt(s.gx, s.gy, cz), isoPt(s.gx, s.gy + s.d, cz), isoPt(s.gx + s.w / 2, s.gy + s.d, cz + h * 0.7), isoPt(s.gx + s.w / 2, s.gy, cz + h * 0.7)], shade(col, 0.8), OUT, lw2()); } break;
       case "dome": cuboid(g, s.gx - (s.w) / 2 + 0.2, s.gy - (s.d) / 2 + 0.2, (s.w) - 0.4, (s.d) - 0.4, h * 0.5, shade(col, 0.9)); dome(g, s.gx + 0 * s.w, s.gy, (s.w || 1.2) * 0.6, h * 0.5, col); break;
       case "silo": cylinder(g, s.gx, s.gy, s.w, h, col, { cap: shade(col, 0.7), capH: s.w * 1.1 }); break;
@@ -4258,8 +4338,16 @@
       case "pylon": lattice(g, s.gx, s.gy, s.w, s.d, h, col); { const t = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h); g.strokeStyle = col; g.beginPath(); g.moveTo(t[0] - 30, t[1] + 6); g.lineTo(t[0], t[1]); g.lineTo(t[0] + 30, t[1] + 6); g.stroke(); } break;
       case "vehicle": cuboid(g, s.gx, s.gy, s.w, s.d, h, col); cuboid(g, s.gx + 0.2, s.gy + 0.15, s.w - 0.5, s.d - 0.4, h * 0.9, shade(col, 0.9), { z: h }); { const t = isoPt(s.gx + s.w, s.gy + s.d / 2, h + h * 0.5); g.strokeStyle = "#2b312a"; g.lineWidth = lw2() * 1.8; g.beginPath(); g.moveTo(t[0] - 10, t[1]); g.lineTo(t[0] + 14, t[1] - 3); g.stroke(); } break;
       case "plane": { const cx = s.gx + s.w / 2, cy = s.gy + s.d / 2; cuboid(g, cx - 0.15, s.gy, 0.3, s.d, h, col); const wl = isoPt(s.gx, cy, h * 0.6), wr = isoPt(s.gx + s.w, cy, h * 0.6), nn = isoPt(cx, s.gy, h * 0.6), tt = isoPt(cx, s.gy + s.d, h * 0.6); poly(g, [wl, nn, wr, tt], shade(col, 1.05), OUT, lw2()); const fin = isoPt(cx, s.gy + s.d, h + 0.6 * fcam.th); poly(g, [isoPt(cx, s.gy + s.d * 0.8, h), isoPt(cx, s.gy + s.d, h), fin], shade(col, 0.8), OUT, lw2()); } break;
-      case "ship": cuboid(g, s.gx, s.gy, s.w, s.d, h * 0.5, col); cuboid(g, s.gx + s.w * 0.3, s.gy + 0.1, s.w * 0.35, s.d - 0.2, h * 0.9, shade(col, 1.1), { z: h * 0.5, win: "#bfe6ff" }); { const t = isoPt(s.gx + s.w * 0.5, s.gy + s.d / 2, h * 1.4); g.strokeStyle = OUT; g.lineWidth = lw2(); g.beginPath(); g.moveTo(t[0], t[1]); g.lineTo(t[0], t[1] - 22 * fcam.s); g.stroke(); } break;
+      case "ship": { const hw = s.w, hd = s.d, hullH = h * 0.5;
+        cuboid(g, s.gx, s.gy, hw, hd, hullH, col);                                                // hull
+        const p1 = isoPt(s.gx + hw, s.gy, hullH), p2 = isoPt(s.gx + hw, s.gy + hd, hullH), p3 = isoPt(s.gx + hw + 0.55, s.gy + hd / 2, hullH), b1 = isoPt(s.gx + hw, s.gy, 0), b3 = isoPt(s.gx + hw + 0.55, s.gy + hd / 2, 0);
+        poly(g, [b1, b3, p3, p1], shade(col, 0.7), OUT, lw2()); poly(g, [p1, p3, p2], shade(col, 1.08), OUT, lw2());   // pointed bow
+        cuboid(g, s.gx + hw * 0.22, s.gy + 0.12, hw * 0.34, hd - 0.24, h * 0.75, shade(col, 1.16), { z: hullH, win: "#bfe6ff", broken });   // bridge superstructure
+        cylinder(g, s.gx + hw * 0.15, s.gy + hd * 0.5, 0.12, h * 0.42, "#41474e", { z: hullH });   // funnel
+        const mb = isoPt(s.gx + hw * 0.6, s.gy + hd / 2, hullH), mt = isoPt(s.gx + hw * 0.6, s.gy + hd / 2, h * 1.5); g.strokeStyle = OUT; g.lineWidth = lw2() * 1.2; g.beginPath(); g.moveTo(mb[0], mb[1]); g.lineTo(mt[0], mt[1]); g.stroke(); beacon(g, mt[0], mt[1], now, (s.gx * 7) | 0); } break;
       case "span": { const y = s.gy; cuboid(g, s.gx, y, s.w, s.d, s.h, col); const a = isoPt(s.gx + 1.4, y + s.d / 2, s.h + 2.6), b = isoPt(s.gx + s.w - 1.4, y + s.d / 2, s.h + 2.6); g.strokeStyle = "#d64b63"; g.lineWidth = lw2() * 1.3; for (let q = 0; q <= 10; q++) { const p = isoPt(s.gx + 0.5 + q / 10 * (s.w - 1), y + s.d / 2, s.h); const anc = q < 5 ? a : b; g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(anc[0], anc[1]); g.stroke(); } } break;
+      case "deck": bridgeDeck(g, s, now); break;
+      case "brpylon": bridgePylon(g, s, now); break;
       case "train": for (let q = 0; q < 4; q++) cuboid(g, s.gx + q * (s.w / 4), s.gy, s.w / 4 - 0.12, s.d, s.h, q === 0 ? shade(col, 1.15) : col, { win: "#ffe08a" }); break;
       case "runway": { const t = [isoPt(s.gx, s.gy, 0), isoPt(s.gx + s.w, s.gy, 0), isoPt(s.gx + s.w, s.gy + s.d, 0), isoPt(s.gx, s.gy + s.d, 0)]; poly(g, t, col, OUT, lw2()); g.save(); g.beginPath(); g.moveTo(t[0][0], t[0][1]); for (const p of t) g.lineTo(p[0], p[1]); g.closePath(); g.clip(); g.strokeStyle = "#e8ecw"; g.setLineDash([12, 10]); g.strokeStyle = "#eef2f6"; g.lineWidth = 2 * fcam.s; const m0 = isoPt(s.gx, s.gy + s.d / 2, 0), m1 = isoPt(s.gx + s.w, s.gy + s.d / 2, 0); g.beginPath(); g.moveTo(m0[0], m0[1]); g.lineTo(m1[0], m1[1]); g.stroke(); g.setLineDash([]); g.restore(); } break;
       case "pole": { const a = isoPt(s.gx, s.gy, 0), b = isoPt(s.gx, s.gy, s.h); g.strokeStyle = col; g.lineWidth = lw2() * 1.4; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); if (s.opts.flag) { poly(g, [b, [b[0] + 22 * fcam.s, b[1] + 4], [b[0], b[1] + 12 * fcam.s]], "#ff3b5c", OUT, lw2()); } if (s.opts.signal) { g.fillStyle = (Math.floor(now / 700) % 2) ? "#4dffb0" : "#ff3b5c"; g.beginPath(); g.arc(b[0], b[1], 4 * fcam.s, 0, Math.PI * 2); g.fill(); } } break;
@@ -4290,6 +4378,12 @@
       else if (p.kind === "flash") { g.fillStyle = `rgba(255,255,220,${(1 - t) * 0.9})`; g.beginPath(); g.arc(p.x, p.y, p.R * (0.5 + t), 0, Math.PI * 2); g.fill(); }
       else if (p.kind === "spark") { const x = p.x + p.vx * t * 0.5, y = p.y + p.vy * t * 0.5 + 120 * t * t; g.fillStyle = p.col; g.beginPath(); g.arc(x, y, 3 * (1 - t) + 1, 0, Math.PI * 2); g.fill(); }
       else if (p.kind === "smoke") { const x = p.x + p.vx * t, y = p.y + p.vy * t; g.fillStyle = `rgba(90,90,96,${(1 - t) * 0.5})`; g.beginPath(); g.arc(x, y, p.s * (0.6 + t), 0, Math.PI * 2); g.fill(); }
+      else if (p.kind === "glass") { const x = p.x + p.vx * t, y = p.y + p.vy * t + 180 * t * t, s2 = p.s * fcam.s;
+        g.save(); g.translate(x, y); g.rotate(p.rot + p.vr * t); g.globalAlpha = Math.max(0, 1 - t); g.fillStyle = "rgba(206,232,246,0.92)"; g.strokeStyle = "rgba(120,164,196,0.9)"; g.lineWidth = 0.6;
+        g.beginPath(); g.moveTo(0, -s2); g.lineTo(s2 * 0.7, s2 * 0.5); g.lineTo(-s2 * 0.6, s2 * 0.4); g.closePath(); g.fill(); g.stroke(); g.restore(); }
+      else if (p.kind === "chunk") { const x = p.x + p.vx * t, y = p.y + p.vy * t + 240 * t * t, s2 = p.sz * fcam.s;
+        g.save(); g.translate(x, y); g.rotate(p.rot + p.vr * t); g.globalAlpha = Math.min(1, 2 - 2 * t); g.fillStyle = shade(p.col, 0.82); g.strokeStyle = OUT; g.lineWidth = 1;
+        g.fillRect(-s2, -s2 * 0.7, s2 * 2, s2 * 1.4); g.strokeRect(-s2, -s2 * 0.7, s2 * 2, s2 * 1.4); g.restore(); }
       return true;
     });
   }
