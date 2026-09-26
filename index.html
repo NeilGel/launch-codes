@@ -4812,7 +4812,11 @@
         g.strokeStyle = "#20242a"; g.lineWidth = lw2(); g.beginPath(); g.arc(0, 0, R * 0.56, 0, Math.PI * 2); g.moveTo(-R * 0.56, 0); g.lineTo(R * 0.56, 0); g.moveTo(0, -R * 0.56); g.lineTo(0, R * 0.56); g.stroke();
         g.restore(); } break;
       case "rocket": { const cyc = (now % 24000) / 24000, firing = cyc > 0.62, lift = cyc < 0.7 ? 0 : Math.pow((cyc - 0.7) / 0.3, 2.2) * 16; drawRocket(g, s.gx, s.gy, s.w, h, col, now, lift, firing); } break;
-      case "cyl": case "chimney": cylinder(g, s.gx, s.gy, s.w, h, col); break;
+      case "cyl": cylinder(g, s.gx, s.gy, s.w, h, col); break;
+      case "chimney": { cylinder(g, s.gx, s.gy, s.w, h, col);
+        const rim = isoPt(s.gx, s.gy, h); g.strokeStyle = shade(col, 0.6); g.lineWidth = lw2() * 1.6; g.beginPath(); for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI * 2, p = isoPt(s.gx + Math.cos(a) * s.w, s.gy + Math.sin(a) * s.w, h - 0.18); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.stroke();   // a warning band near the top
+        g.save(); for (let k = 0; k < 7; k++) { const t = ((now / 1500 + k * 0.145 + (s.gx * 3 % 5) / 5) % 1), drift = t * t * 34 * fcam.s, y = rim[1] - t * 64 * fcam.s, sz = (3.4 + t * 17) * fcam.s;
+          g.fillStyle = `rgba(${facNight ? "58,62,70" : "96,98,102"},${(1 - t) * 0.5})`; g.beginPath(); g.arc(rim[0] + drift + Math.sin(t * 5 + k) * 4 * fcam.s, y, sz, 0, Math.PI * 2); g.fill(); } g.restore(); } break;   // sooty smoke drifting downwind
       case "cool": turbine(g, s.gx, s.gy, s.w, col); break;
       case "dish": dish(g, s.gx, s.gy, s.w, s.d, col, now); break;
       case "gantry": lattice(g, s.gx, s.gy, s.w, s.d, h, col); break;
