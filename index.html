@@ -3973,6 +3973,37 @@
     g.fillStyle = "#e0b83a"; g.beginPath(); g.arc(sp1[0], sp1[1], 3 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = 1; g.stroke();   // gilded finial
   }
 
+  // ---- City towers with real architectural variety: glass curtain walls, brick blocks, modern slabs ----
+  function glassFace(g, bl, br, tr, tl, cols, rows) {
+    gradPoly(g, [bl, br, tr, tl], "#cfe6f7", "#6b93b8", null, 0);                                   // sky-reflecting glass
+    g.strokeStyle = "rgba(26,44,64,0.32)"; g.lineWidth = 0.7;
+    for (let c = 1; c < cols; c++) { const u = c / cols, p0 = lerp2(bl, br, u), p1 = lerp2(tl, tr, u); g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke(); }
+    for (let r = 1; r < rows; r++) { const v = r / rows, p0 = lerp2(bl, tl, v), p1 = lerp2(br, tr, v); g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke(); }
+    g.save(); g.globalCompositeOperation = "lighter"; poly(g, [lerp2(bl, tl, 0.15), lerp2(bl, tl, 0.44), lerp2(br, tr, 0.44), lerp2(br, tr, 0.15)], "rgba(255,255,255,0.1)", null, 0); g.restore();   // a diagonal sky glint
+  }
+  function spireMast(g, cx, cy, z0, z1, now, seed) {
+    const a = isoPt(cx, cy, z0), b = isoPt(cx, cy, z1); g.strokeStyle = "#5a636d"; g.lineWidth = lw2() * 1.2; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); beacon(g, b[0], b[1], now, seed);
+  }
+  function drawCityTower(g, s, now, col, h, broken) {
+    const w = s.w, d = s.d, style = s.opts.style || "modern", cx = s.gx + w / 2, cy = s.gy + d / 2, flash = col === "#ffffff";
+    footing(g, s.gx, s.gy, w, d, s.color);
+    if (style === "glass") {
+      cuboid(g, s.gx, s.gy, w, d, h, col, {});
+      if (!flash) { const b = (x, y) => isoPt(s.gx + x, s.gy + y, 0), t = (x, y) => isoPt(s.gx + x, s.gy + y, h), cols = Math.max(3, Math.round(w * 3)), rows = Math.max(5, Math.round(h * 1.5));
+        glassFace(g, b(0, d), b(w, d), t(w, d), t(0, d), cols, rows); glassFace(g, b(w, 0), b(w, d), t(w, d), t(w, 0), Math.max(3, Math.round(d * 3)), rows); }
+      cuboid(g, s.gx + w * 0.16, s.gy + d * 0.16, w * 0.68, d * 0.68, h * 0.14, shade(s.color, 0.92), { z: h });   // glazed crown setback
+      spireMast(g, cx, cy, h * 1.14, h * 1.42, now, (s.gx * 10) | 0);
+    } else if (style === "brick") {
+      cuboid(g, s.gx - 0.05, s.gy - 0.05, w + 0.1, d + 0.1, 0.32, shade(col, 0.86), {});             // stone plinth
+      cuboid(g, s.gx, s.gy, w, d, h, col, { win: s.opts.win, broken });
+      cuboid(g, s.gx - 0.07, s.gy - 0.07, w + 0.14, d + 0.14, 0.16, shade(col, 1.14), { z: h - 0.16 });   // cornice
+      if (h > 2.6) roofKit(g, s.gx, s.gy, w, d, h - 0.16, now, (s.gx * 100 + s.gy * 10) | 0);
+    } else {
+      cuboid(g, s.gx, s.gy, w, d, h, col, { win: s.opts.win, broken, parapet: true, base: true });
+      roofKit(g, s.gx, s.gy, w, d, h, now, (s.gx * 100 + s.gy * 10) | 0);
+    }
+  }
+
   // ---- Industrial kit: storage tanks, elevated pipe runs and a sawtooth factory hall ----
   function drawTank(g, gx, gy, rad, h, col) {
     cylinder(g, gx, gy, rad, h, col);
@@ -4073,10 +4104,10 @@
   const scatter = (rng, n, kinds) => { const out = []; for (let k = 0; k < n; k++) { const a = rng() * Math.PI * 2, r = 1.6 + rng() * 2.2; out.push(kinds(Math.cos(a) * r, Math.sin(a) * r, rng, k)); } return out; };
   const FAC_SCENE = {
     city:    (r) => ({ ground: "grass", s: [
-      S("tower", -1.8, -1.5, 1.1, 1.1, 4.8, "#5b7fb0", { win: "#ffe08a", hp: 3 }), S("tower", 0.1, -1.9, 1.2, 1.2, 6.4, "#6f88b8", { win: "#ffe08a", hp: 3 }),
-      S("tower", 1.6, -0.6, 1.0, 1.0, 3.8, "#8090a8", { win: "#ffe08a" }), S("tower", -0.5, 0.5, 1.3, 1.3, 5.4, "#4f6ea0", { win: "#ffe08a", hp: 3 }),
-      S("tower", 1.4, 1.2, 1.1, 1.1, 4.2, "#7f93b6", { win: "#ffe08a" }), S("tower", -1.9, 0.7, 1.0, 1.0, 3.2, "#8a9ab0", { win: "#ffe08a" }),
-      S("box", 0.5, 1.9, 1.5, 1.0, 1.5, "#9fb0a0", { win: "#ffe08a", roof: "#7f9080" }), S("crane", 2.5, 0.4, 0.5, 0.5, 4.6, "#e0a63a") ] }),
+      S("citytower", -1.9, -1.6, 1.15, 1.15, 5.6, "#6f88b8", { style: "glass", hp: 3 }), S("citytower", 0.1, -2.0, 1.25, 1.25, 7.0, "#5b7fb0", { style: "glass", hp: 3 }),
+      S("citytower", 1.7, -0.6, 1.0, 1.0, 3.9, "#b0895f", { style: "brick", win: "#ffe08a" }), S("citytower", -0.6, 0.5, 1.35, 1.35, 5.2, "#7f93b6", { style: "modern", win: "#ffe08a", hp: 3 }),
+      S("citytower", 1.5, 1.2, 1.1, 1.1, 4.4, "#9a7d5f", { style: "brick", win: "#ffe08a" }), S("citytower", -2.0, 0.7, 1.0, 1.0, 3.3, "#8090a8", { style: "modern", win: "#ffe08a" }),
+      S("box", 0.5, 2.0, 1.5, 1.0, 1.5, "#9fb0a0", { win: "#ffe08a", roof: "#7f9080" }), S("crane", 2.6, 0.4, 0.5, 0.5, 4.8, "#e0a63a") ] }),
     gov:     (r) => ({ ground: "concrete", s: [
       S("capitol", -1.5, -1.3, 3.0, 2.0, 2.0, "#e6ddc6", { win: "#bfe6ff", hp: 5 }),
       S("box", -3.1, -0.7, 1.5, 1.5, 1.6, "#d8cfb8", { win: "#bfe6ff", roof: "#c3b998" }), S("box", 1.7, -0.7, 1.5, 1.5, 1.6, "#d8cfb8", { win: "#bfe6ff", roof: "#c3b998" }),
@@ -4643,6 +4674,7 @@
       case "deck": bridgeDeck(g, s, now); break;
       case "brpylon": bridgePylon(g, s, now); break;
       case "capitol": drawCapitol(g, s, now); break;
+      case "citytower": drawCityTower(g, s, now, col, h, broken); break;
       case "factoryhall": drawFactoryHall(g, s, col); break;
       case "tank": drawTank(g, s.gx, s.gy, s.w, h, col); break;
       case "pipes": drawPipes(g, s.gx, s.gy, s.w, s.h, col); break;
