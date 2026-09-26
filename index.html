@@ -4427,6 +4427,15 @@
     const beam = isoPt(s.gx + (s.fwd > 0 ? w : 0), s.gy + d / 2, h * 0.5);   // headlamp glow, forward
     g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,244,190,0.5)"; g.beginPath(); g.arc(beam[0] + (s.fwd > 0 ? 5 : -5), beam[1] + 2, 5 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
   }
+  function drawGatehouse(g, s, now) {                                                               // a guard booth and a boom barrier at the gateway
+    const gx = s.gx, gy = s.gy;
+    softShadow(g, gx, gy, 0.5, 0.5);
+    cuboid(g, gx, gy, 0.5, 0.5, 0.78, "#9aa2a8", { win: "#bfe6ff", roof: "#6b7280", door: true });
+    const cp0 = isoPt(gx - 0.05, gy + 0.25, 0), cp1 = isoPt(gx - 0.05, gy + 0.25, 0.58); g.strokeStyle = "#6b7681"; g.lineWidth = lw2() * 1.4; g.beginPath(); g.moveTo(cp0[0], cp0[1]); g.lineTo(cp1[0], cp1[1]); g.stroke();   // pivot post
+    const pivot = isoPt(gx - 0.05, gy + 0.25, 0.58), tip = isoPt(gx - 2.9, gy + 0.25, 0.58);
+    g.strokeStyle = "#e9edf1"; g.lineWidth = lw2() * 2.2; g.lineCap = "round"; g.beginPath(); g.moveTo(pivot[0], pivot[1]); g.lineTo(tip[0], tip[1]); g.stroke();   // boom arm
+    g.strokeStyle = "#d64b3a"; g.setLineDash([7 * fcam.s, 7 * fcam.s]); g.beginPath(); g.moveTo(pivot[0], pivot[1]); g.lineTo(tip[0], tip[1]); g.stroke(); g.setLineDash([]); g.lineCap = "butt";
+  }
   // ---- Fire and elegant collapse ----
   function facFlame(g, x, y, scl, now, seed) {
     g.save(); g.globalCompositeOperation = "lighter";
@@ -4539,10 +4548,10 @@
     }
     // ---- Everything on the land — far trees, buildings, decor, a patrol jeep and your attackers — painted back to front ----
     const extra = [];
-    if (!water) { const t = (now % 26000) / 26000, [px, py] = patrolPos(t), [px2] = patrolPos((t + 0.01) % 1); extra.push({ patrol: true, gx: px, gy: py, fwd: px2 - px >= 0 ? 1 : -1 }); }
+    if (!water) { const t = (now % 26000) / 26000, [px, py] = patrolPos(t), [px2] = patrolPos((t + 0.01) % 1); extra.push({ patrol: true, gx: px, gy: py, fwd: px2 - px >= 0 ? 1 : -1 }); extra.push({ gate: true, gx: 1.55, gy: G0 - 0.35 }); }
     const depth = s => s.gx + s.gy + (s.unit ? 0.3 : 0) - (s.dead && !s.collapsing ? 9 : 0);
     const order = [...sc.s, ...sc.decor, ...sc.land.trees, ...extra, ...sc.attackers].sort((a, b) => depth(a) - depth(b));
-    for (const s of order) s.unit ? drawAttacker(g, s, now) : s.patrol ? drawPatrol(g, s, now) : s.prop ? drawProp(g, s, now) : drawStruct(g, s, now);
+    for (const s of order) s.unit ? drawAttacker(g, s, now) : s.patrol ? drawPatrol(g, s, now) : s.gate ? drawGatehouse(g, s, now) : s.prop ? drawProp(g, s, now) : drawStruct(g, s, now);
     drawFacFx(g, F, now);
     g.restore();
   }
