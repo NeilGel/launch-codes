@@ -4146,10 +4146,11 @@
   function makeLandscape(sc, rng) {
     const fields = [], trees = [], cols = FIELD_COLS[sc.ground] || FIELD_COLS.grass;
     for (let k = 0; k < 12; k++) { const a = rng() * Math.PI * 2, r = 5.5 + rng() * 8; fields.push({ gx: Math.cos(a) * r, gy: Math.sin(a) * r, w: 2 + rng() * 3.5, d: 1.8 + rng() * 3, c: cols[Math.floor(rng() * cols.length)] }); }
-    const kind = sc.ground === "sand" ? "rock" : sc.ground === "water" ? "buoy" : "tree";
     for (let k = 0; k < 30; k++) { const a = rng() * Math.PI * 2, r = 4.6 + rng() * 9.5, gx = Math.cos(a) * r, gy = Math.sin(a) * r;
       if (Math.abs(gx) < 4.2 && Math.abs(gy) < 4.2) continue;                    // keep the compound itself clear
-      trees.push({ prop: true, far: true, k: kind, gx, gy, s: Math.floor(rng() * 3), c: kind === "tree" ? TREE_COLS[Math.floor(rng() * TREE_COLS.length)] : kind === "rock" ? "#b8a882" : "#ff5a3c" }); }
+      const kind = sc.ground === "sand" ? (rng() < 0.3 ? "palm" : "rock") : sc.ground === "water" ? "buoy" : (rng() < 0.32 ? "pine" : "tree");
+      const green = kind === "tree" || kind === "pine" || kind === "palm";
+      trees.push({ prop: true, far: true, k: kind, gx, gy, s: Math.floor(rng() * 3), c: green ? TREE_COLS[Math.floor(rng() * TREE_COLS.length)] : kind === "rock" ? "#b8a882" : "#ff5a3c" }); }
     return { fields, trees };
   }
 
@@ -4312,6 +4313,11 @@
         const cz = isoPt(gx, gy, 0.55 + s.s * 0.18), rr = (9 + s.s * 4) * fcam.s; g.fillStyle = col(shade(s.c, 0.88)); g.beginPath(); g.arc(cz[0], cz[1] - rr * 0.5, rr, 0, Math.PI * 2); g.fill(); g.strokeStyle = col(OUT); g.lineWidth = lw2(); g.stroke();
         g.fillStyle = col(s.c); g.beginPath(); g.arc(cz[0] + rr * 0.15, cz[1] - rr * 0.62, rr * 0.72, 0, Math.PI * 2); g.fill();
         g.fillStyle = col(shade(s.c, 1.22)); g.beginPath(); g.arc(cz[0] - rr * 0.32, cz[1] - rr * 0.9, rr * 0.46, 0, Math.PI * 2); g.fill(); } break;
+      case "pine": { const tr = isoPt(gx, gy, 0.2); g.strokeStyle = col("#6b4a2e"); g.lineWidth = lw2() * 1.5; g.beginPath(); g.moveTo(c0[0], c0[1]); g.lineTo(tr[0], tr[1]); g.stroke();   // conifer
+        for (let L2 = 0; L2 < 3; L2++) { const zb = 0.2 + L2 * 0.26, zt = zb + 0.42, rr = (11 - L2 * 2.6) * fcam.s, b0 = isoPt(gx, gy, zb), tp = isoPt(gx, gy, zt); g.fillStyle = col(shade(s.c, 1 - L2 * 0.05)); g.beginPath(); g.moveTo(tp[0], tp[1]); g.lineTo(b0[0] - rr, b0[1]); g.lineTo(b0[0] + rr, b0[1]); g.closePath(); g.fill(); g.strokeStyle = col(OUT); g.lineWidth = lw2(); g.stroke(); } } break;
+      case "palm": { const topZ = 0.95, curve = 4 * fcam.s; const a = c0, b2 = isoPt(gx, gy, topZ); g.strokeStyle = col("#8a6a3e"); g.lineWidth = lw2() * 1.6; g.lineCap = "round"; g.beginPath(); g.moveTo(a[0], a[1]); g.quadraticCurveTo(a[0] + curve, (a[1] + b2[1]) / 2, b2[0] + curve, b2[1]); g.stroke(); g.lineCap = "butt";   // palm
+        const tp = [b2[0] + curve, b2[1]]; g.strokeStyle = col(s.c); g.lineWidth = lw2() * 1.8;
+        for (let f = 0; f < 6; f++) { const a2 = Math.PI + f / 5 * Math.PI, fx = tp[0] + Math.cos(a2) * 13 * fcam.s, fy = tp[1] + Math.sin(a2) * 7 * fcam.s - 2; g.beginPath(); g.moveTo(tp[0], tp[1]); g.quadraticCurveTo((tp[0] + fx) / 2, (tp[1] + fy) / 2 - 3, fx, fy); g.stroke(); } } break;
       case "bush": { const cz = isoPt(gx, gy, 0.16), rr = 7 * fcam.s; g.fillStyle = col(s.c); g.beginPath(); g.arc(cz[0], cz[1] - rr * 0.4, rr, 0, Math.PI * 2); g.arc(cz[0] + rr * 0.7, cz[1] - rr * 0.2, rr * 0.7, 0, Math.PI * 2); g.fill(); g.strokeStyle = col(OUT); g.lineWidth = lw2(); g.stroke(); } break;
       case "lamp": { const top = isoPt(gx, gy, 1.15); g.strokeStyle = "#8a929b"; g.lineWidth = lw2() * 1.3; g.beginPath(); g.moveTo(c0[0], c0[1]); g.lineTo(top[0], top[1]); g.stroke();
         g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,224,138,0.5)"; g.beginPath(); g.arc(top[0], top[1] + 2, 7 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
@@ -4328,8 +4334,8 @@
     if (ps !== 1) g.restore();
   }
   const DECOR_KINDS = {
-    grass: ["tree", "tree", "tree", "bush", "lamp", "hydrant"], concrete: ["lamp", "crate", "sandbag", "barrier", "barrel", "hydrant"],
-    tarmac: ["lamp", "car", "barrier", "crate", "hydrant"], sand: ["rock", "sandbag", "crate", "barrel"], water: ["buoy", "buoy"],
+    grass: ["tree", "tree", "pine", "bush", "lamp", "hydrant"], concrete: ["lamp", "crate", "sandbag", "barrier", "barrel", "hydrant"],
+    tarmac: ["lamp", "car", "barrier", "crate", "hydrant"], sand: ["rock", "palm", "sandbag", "crate"], water: ["buoy", "buoy"],
   };
   const TREE_COLS = ["#3f9b46", "#49a85a", "#5bb268", "#36913f"], CAR_COLS = ["#c94b4b", "#3f6ea0", "#e0a63a", "#5b6b7a", "#e8e8ea"];
   function makeDecor(scene, rng) {
@@ -4339,7 +4345,7 @@
       const x = (rng() * 2 - 1) * R, y = (rng() * 2 - 1) * R;
       if (occupied(x, y) || out.some(o => Math.abs(o.gx - x) < 0.75 && Math.abs(o.gy - y) < 0.75)) continue;
       const k = kinds[Math.floor(rng() * kinds.length)];
-      out.push({ prop: true, k, gx: x, gy: y, s: Math.floor(rng() * 3), c: k === "tree" ? TREE_COLS[Math.floor(rng() * TREE_COLS.length)] : k === "car" ? CAR_COLS[Math.floor(rng() * CAR_COLS.length)] : k === "bush" ? "#49a052" : k === "rock" ? "#9a978f" : k === "crate" ? "#b9924e" : k === "barrel" ? "#5b7f4a" : "#c94b4b" });
+      out.push({ prop: true, k, gx: x, gy: y, s: Math.floor(rng() * 3), c: (k === "tree" || k === "pine" || k === "palm") ? TREE_COLS[Math.floor(rng() * TREE_COLS.length)] : k === "car" ? CAR_COLS[Math.floor(rng() * CAR_COLS.length)] : k === "bush" ? "#49a052" : k === "rock" ? "#9a978f" : k === "crate" ? "#b9924e" : k === "barrel" ? "#5b7f4a" : "#c94b4b" });
     }
     return out;
   }
