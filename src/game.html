@@ -2518,6 +2518,13 @@
         g.strokeStyle = "#d5dade"; g.lineWidth = 2.6 * lw; g.stroke();
         g.strokeStyle = "#4a3526"; g.lineWidth = 1.5 * lw; g.stroke();
         }
+        const pts = net.rail.map(kk => P[kk]); let total = 0; const segs = [];   // a train running the line
+        for (let m = 0; m < pts.length - 1; m++) { const L2 = Math.hypot(pts[m + 1][0] - pts[m][0], pts[m + 1][1] - pts[m][1]); segs.push(L2); total += L2; }
+        if (total > 0) { let dist = ((now / 12000) % 1) * total, m = 0; while (m < segs.length && dist > segs[m]) { dist -= segs[m]; m++; }
+          if (m < segs.length && segs[m] > 0) { const t = dist / segs[m], a = pts[m], b = pts[m + 1], tx = a[0] + (b[0] - a[0]) * t, ty = a[1] + (b[1] - a[1]) * t, ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+            g.save(); g.translate(tx, ty); g.rotate(ang);
+            for (let c = 0; c < 3; c++) { g.fillStyle = c === 0 ? "#5b8fd0" : "#3f6ea0"; g.strokeStyle = "#12202f"; g.lineWidth = 0.4 * lw; const bx = (1 - c) * 5.4 * lw; g.fillRect(bx - 2.3 * lw, -2 * lw, 4.4 * lw, 4 * lw); g.strokeRect(bx - 2.3 * lw, -2 * lw, 4.4 * lw, 4 * lw); }
+            g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,244,190,0.9)"; g.beginPath(); g.arc(7 * lw, 0, 1.4 * lw, 0, Math.PI * 2); g.fill(); g.restore(); g.restore(); } }
       }
       // Power lines: pylons along the wires, with power flowing while the station stands
       for (const [q, x] of (marks ? [] : net.power)) {
