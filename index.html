@@ -4472,7 +4472,7 @@
     { sky: ["#74bdf4", "#d6ecff"], sun: "255,247,222", sunA: 0.85, sunX: 0.8, sunY: 0.36, tint: null },
     { sky: ["#74bdf4", "#d6ecff"], sun: "255,247,222", sunA: 0.85, sunX: 0.8, sunY: 0.36, tint: null },
     { sky: ["#f0b26a", "#ffe6c2"], sun: "255,224,168", sunA: 0.95, sunX: 0.82, sunY: 0.52, tint: "rgba(255,186,110,0.12)" },
-    { sky: ["#9aa8b4", "#ccd5dd"], sun: "236,239,241", sunA: 0.35, sunX: 0.7, sunY: 0.3, tint: "rgba(150,162,172,0.14)" },
+    { sky: ["#9aa8b4", "#ccd5dd"], sun: "236,239,241", sunA: 0.35, sunX: 0.7, sunY: 0.3, tint: "rgba(150,162,172,0.14)", rain: true },
   ];
   function drawFacility(now) {
     const F = ui.facility; if (!F || !fw2) return;
@@ -4563,6 +4563,8 @@
     drawFacFx(g, F, now);
     g.restore();
     if (mood.tint) { g.fillStyle = mood.tint; g.fillRect(0, 0, fw2, fh2); }        // a wash of the day's light over the whole scene
+    if (mood.rain) { g.strokeStyle = "rgba(206,220,230,0.4)"; g.lineWidth = 1;     // slanting rain on overcast days
+      for (let k = 0; k < 90; k++) { const rx = (k * 137 + now * 0.55) % (fw2 + 30) - 15, ry = (k * 83 + now * 1.1) % (fh2 + 20); g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx - 4, ry + 13); g.stroke(); } }
   }
 
   function drawStruct(g, s, now) {
