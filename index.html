@@ -4559,6 +4559,12 @@
       }
       floodlight(g, -G0 + 0.25, -G0 + 0.25, now); floodlight(g, G0 - 0.25, -G0 + 0.25, now);
     }
+    if (water) for (const s of sc.s) {                                           // shimmering reflections cast down onto the water
+      if (s.dead || s.collapsing) continue;
+      const cx = s.gx + (s.w || 1) / 2, cy = s.gy + (s.d || 1) / 2, base = isoPt(cx, cy, 0), top = isoPt(cx, cy, s.h || 1);
+      const H = Math.max(6, base[1] - top[1]), wpx = Math.max(7, (s.w || 1) * fcam.tw * fcam.s * 0.55), n = parseInt((s.color || "#8894a0").slice(1), 16), rgb = `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+      for (let yy = 2; yy < H * 0.68; yy += 3) { const a = (1 - yy / (H * 0.68)) * 0.32, wob = Math.sin(now / 480 + yy * 0.25 + cx * 3) * (1.4 + yy * 0.045); g.fillStyle = `rgba(${rgb},${a})`; g.fillRect(base[0] - wpx / 2 + wob, base[1] + yy, wpx, 2.6); }
+    }
     // ---- Everything on the land — far trees, buildings, decor, a patrol jeep and your attackers — painted back to front ----
     const extra = [];
     if (!water) { const t = (now % 26000) / 26000, [px, py] = patrolPos(t), [px2] = patrolPos((t + 0.01) % 1); extra.push({ patrol: true, gx: px, gy: py, fwd: px2 - px >= 0 ? 1 : -1 }); extra.push({ gate: true, gx: 1.55, gy: G0 - 0.35 }); }
