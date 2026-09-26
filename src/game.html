@@ -4628,6 +4628,11 @@
       g.save(); g.beginPath(); g.moveTo(pad[0][0], pad[0][1]); for (const p of pad) g.lineTo(p[0], p[1]); g.closePath(); g.clip();
       g.strokeStyle = "rgba(20,36,59,0.12)"; g.lineWidth = 1;
       for (let t = -G0 + 1.3; t < G0; t += 1.3) { const a = isoPt(t, -G0, 0.01), b = isoPt(t, G0, 0.01), c2 = isoPt(-G0, t, 0.01), d2 = isoPt(G0, t, 0.01); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.moveTo(c2[0], c2[1]); g.lineTo(d2[0], d2[1]); g.stroke(); }
+      if (mood.rain) { const rp = seeded(F.i * 31 + 7);                            // puddles catching the grey sky
+        for (let k = 0; k < 6; k++) { const c2 = isoPt((rp() * 2 - 1) * G0 * 0.85, (rp() * 2 - 1) * G0 * 0.85, 0.01), rw = (7 + rp() * 11) * fcam.s;
+          g.globalAlpha = 0.4; g.fillStyle = "#aeb9c2"; g.beginPath(); g.ellipse(c2[0], c2[1], rw, rw * 0.4, 0, 0, Math.PI * 2); g.fill();
+          g.globalAlpha = 0.22; g.fillStyle = "#eef3f7"; g.beginPath(); g.ellipse(c2[0] - rw * 0.2, c2[1] - 1, rw * 0.5, rw * 0.2, 0, 0, Math.PI * 2); g.fill(); }
+        g.globalAlpha = 1; }
       g.restore();
     }
     // chain-link fence right round the compound, with a gateway where the road comes in, and lit mast towers at the back
