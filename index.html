@@ -4517,6 +4517,17 @@
     const beam = isoPt(s.gx + (s.fwd > 0 ? w : 0), s.gy + d / 2, h * 0.5);   // headlamp glow, forward
     g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,244,190,0.5)"; g.beginPath(); g.arc(beam[0] + (s.fwd > 0 ? 5 : -5), beam[1] + 2, 5 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
   }
+  function drawTugboat(g, s, now) {                                                                 // a tug chugging across the harbour
+    const gx = s.gx, gy = s.gy, wob = Math.sin(now / 500) * 0.015;
+    const b = isoPt(gx - 0.35, gy + 0.2, 0); g.save(); g.globalAlpha = 0.4; g.strokeStyle = "#ffffff"; g.lineWidth = lw2() * 0.8;   // wake
+    for (let k = 1; k <= 3; k++) { g.beginPath(); g.ellipse(b[0] - k * 9 * fcam.s, b[1] + 2, (7 + k * 5) * fcam.s, (3 + k * 2) * fcam.s, 0, -0.7, 0.7); g.stroke(); } g.restore();
+    cuboid(g, gx, gy, 0.7, 0.42, 0.22, "#c1453f", { z: wob });                                      // hull
+    const p1 = isoPt(gx + 0.7, gy, 0.22 + wob), p2 = isoPt(gx + 0.7, gy + 0.42, 0.22 + wob), p3 = isoPt(gx + 0.98, gy + 0.21, 0.22 + wob), q1 = isoPt(gx + 0.7, gy, wob), q3 = isoPt(gx + 0.98, gy + 0.21, wob);
+    poly(g, [q1, q3, p3, p1], shade("#c1453f", 0.7), OUT, lw2()); poly(g, [p1, p3, p2], shade("#c1453f", 1.05), OUT, lw2());   // bow
+    cuboid(g, gx + 0.12, gy + 0.09, 0.3, 0.26, 0.28, "#e8ecef", { z: 0.22 + wob, win: "#bfe6ff" });   // wheelhouse
+    cylinder(g, gx + 0.3, gy + 0.2, 0.06, 0.22, "#2f3a44", { z: 0.5 + wob });                       // funnel
+    if (Math.sin(now / 700) > 0.5) smoke(g, gx + 0.3, gy + 0.2, 0.72 + wob, now, (gx * 5) | 0);
+  }
   function drawRoadCar(g, s, now) {                                                                 // a car cruising the approach road
     softShadow(g, s.gx, s.gy, 0.5, 0.32);
     cuboid(g, s.gx, s.gy, 0.5, 0.32, 0.17, s.col);
@@ -4668,9 +4679,10 @@
     const extra = [];
     if (!water) { const t = (now % 26000) / 26000, [px, py] = patrolPos(t), [px2] = patrolPos((t + 0.01) % 1); extra.push({ patrol: true, gx: px, gy: py, fwd: px2 - px >= 0 ? 1 : -1 }); extra.push({ gate: true, gx: 1.55, gy: G0 - 0.35 });
       for (let ci = 0; ci < 2; ci++) { const ct = (now / 8000 + ci * 0.53) % 1, out = ci === 0; extra.push({ car: true, gx: out ? 0.28 : -0.48, gy: 4.4 + (out ? ct : 1 - ct) * 5.3, col: out ? "#e8e8ea" : "#c94b4b", fwd: out ? 1 : -1 }); } }   // traffic on the approach road
+    else { const bt = (now % 32000) / 32000; extra.push({ boat: true, gx: -6.5 + bt * 13, gy: 3.6 + Math.sin(bt * Math.PI * 2) * 0.6 }); }   // a tug crossing the harbour
     const depth = s => s.gx + s.gy + (s.unit ? 0.3 : 0) - (s.dead && !s.collapsing ? 9 : 0);
     const order = [...sc.s, ...sc.decor, ...sc.land.trees, ...extra, ...sc.attackers].sort((a, b) => depth(a) - depth(b));
-    for (const s of order) s.unit ? drawAttacker(g, s, now) : s.patrol ? drawPatrol(g, s, now) : s.car ? drawRoadCar(g, s, now) : s.gate ? drawGatehouse(g, s, now) : s.prop ? drawProp(g, s, now) : drawStruct(g, s, now);
+    for (const s of order) s.unit ? drawAttacker(g, s, now) : s.patrol ? drawPatrol(g, s, now) : s.car ? drawRoadCar(g, s, now) : s.boat ? drawTugboat(g, s, now) : s.gate ? drawGatehouse(g, s, now) : s.prop ? drawProp(g, s, now) : drawStruct(g, s, now);
     if (["sam", "base", "hq"].includes(sc.type) && !F.done) {                     // defensive AA tracer fire streaking into the sky
       const o = isoPt(0, -0.3, 0.6); g.save(); g.globalCompositeOperation = "lighter";
       for (let b = 0; b < 4; b++) { const ph = ((now / 1300 + b * 0.27) % 1); if (ph > 0.9) continue;
