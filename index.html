@@ -4070,12 +4070,16 @@
     for (let yy = gy + 0.06; yy < gy + d; yy += 0.09) { const a = isoPt(gx + w, yy, h * 0.25), b = isoPt(gx + w + 0.14, yy, h * 0.25); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
     for (let k = 0; k < 3; k++) { const bx = gx + 0.12 + k * (w - 0.24) / 2, by = gy + d * 0.5; cylinder(g, bx, by, 0.045, 0.28, "#c9a24a", { z: h }); }   // insulator bushings
   }
-  function drawSwitchyard(g, s) {                                                                  // lattice gantries, catenary wires and a row of transformers
+  function drawSwitchyard(g, s, now) {                                                             // lattice gantries, catenary wires and a row of transformers
     const gx = s.gx, gy = s.gy, w = s.w, d = s.d, hh = 1.9, fx0 = gx + 0.3, fx1 = gx + w - 0.3, gyM = gy + d * 0.28;
     for (const fx of [fx0, fx1]) lattice(g, fx - 0.14, gyM - 0.14, 0.28, 0.28, hh, "#9aa2aa");
     g.strokeStyle = "#3f444b"; g.lineWidth = lw2() * 0.7;
     for (let k = -1; k <= 1; k++) { const ay = gyM + k * 0.12, a = isoPt(fx0, ay, hh), b = isoPt(fx1, ay, hh); g.beginPath(); g.moveTo(a[0], a[1]); g.quadraticCurveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 11 * fcam.s, b[0], b[1]); g.stroke(); }
     for (let k = 0; k < 3; k++) drawTransformer(g, gx + 0.35 + k * (w - 0.9) / 2, gy + d - 0.55, 0.5, 0.45, 0.5, "#8a929a");
+    if (facNight && now) { g.save(); g.globalCompositeOperation = "lighter";                       // insulators corona and the odd arc across the busbars after dark
+      for (const fx of [fx0, fx1]) { const p = isoPt(fx, gyM, hh), gr = g.createRadialGradient(p[0], p[1], 0, p[0], p[1], 7 * fcam.s); gr.addColorStop(0, "rgba(150,200,255,0.45)"); gr.addColorStop(1, "rgba(150,200,255,0)"); g.fillStyle = gr; g.beginPath(); g.arc(p[0], p[1], 7 * fcam.s, 0, Math.PI * 2); g.fill(); }
+      if ((now + gx * 400) % 2300 < 100) { const a = isoPt(fx0, gyM, hh), b = isoPt(fx1, gyM, hh); g.strokeStyle = "rgba(200,230,255,0.9)"; g.lineWidth = 1.6 * fcam.s; g.beginPath(); g.moveTo(a[0], a[1]); for (let i = 1; i <= 6; i++) { const u = i / 6; g.lineTo(a[0] + (b[0] - a[0]) * u + (Math.random() - 0.5) * 11, a[1] + (b[1] - a[1]) * u + (Math.random() - 0.5) * 11); } g.stroke(); }
+      g.restore(); }
   }
   const CONT_COLS = ["#c94b4b", "#3f6ea0", "#e0a63a", "#4a9a5a", "#7d5fa6", "#c96a3f", "#3f8f9a"];
   function drawContainers(g, gx, gy, cols, rows, layers, z0 = 0) {
@@ -4840,7 +4844,7 @@
       case "factoryhall": drawFactoryHall(g, s, col); break;
       case "tank": drawTank(g, s.gx, s.gy, s.w, h, col); break;
       case "pipes": drawPipes(g, s.gx, s.gy, s.w, s.h, col); break;
-      case "switchyard": drawSwitchyard(g, s); break;
+      case "switchyard": drawSwitchyard(g, s, now); break;
       case "containers": drawContainers(g, s.gx, s.gy, s.w, s.d, s.h); break;
       case "containership": drawContainerShip(g, s, now); break;
       case "crane": drawCraneFac(g, s, now); break;
