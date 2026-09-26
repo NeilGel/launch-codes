@@ -4065,13 +4065,24 @@
     cuboid(g, hookX - 0.3, hookY - 0.18, 0.6, 0.36, 0.3, "#c94b4b", { z: loadZ - 0.3 });             // the hanging load
     beacon(g, top[0], top[1], now, (cx * 7) | 0);
   }
-  function drawHelipad(g, gx, gy, rad) {
+  function drawHelipad(g, gx, gy, rad, now) {
     const c = isoPt(gx, gy, 0.02), R = rad * fcam.tw * fcam.s;
     g.save(); g.translate(c[0], c[1]); g.scale(1, 0.5);
     g.fillStyle = "#39412f"; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke();
     g.strokeStyle = "#e8c34a"; g.lineWidth = lw2() * 1.3; g.setLineDash([6 * fcam.s, 5 * fcam.s]); g.beginPath(); g.arc(0, 0, R * 0.84, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
     g.lineWidth = lw2() * 2; g.beginPath(); g.moveTo(-R * 0.34, -R * 0.42); g.lineTo(-R * 0.34, R * 0.42); g.moveTo(R * 0.34, -R * 0.42); g.lineTo(R * 0.34, R * 0.42); g.moveTo(-R * 0.34, 0); g.lineTo(R * 0.34, 0); g.stroke();
     g.restore();
+    if (now) drawHeliFac(g, gx, gy, now);                                                           // a chopper sits on the pad, rotor idling
+  }
+  function drawHeliFac(g, gx, gy, now) {
+    const z = 0.12 + Math.sin(now / 600) * 0.02;
+    const t0 = isoPt(gx - 0.28, gy, z + 0.16), t1 = isoPt(gx - 1.0, gy, z + 0.2); g.strokeStyle = "#2f4a72"; g.lineWidth = lw2() * 2.2; g.lineCap = "round"; g.beginPath(); g.moveTo(t0[0], t0[1]); g.lineTo(t1[0], t1[1]); g.stroke(); g.lineCap = "butt";   // tail boom
+    const tr = isoPt(gx - 1.0, gy, z + 0.28); g.strokeStyle = "#20303f"; g.lineWidth = 1.4; g.beginPath(); g.moveTo(tr[0], tr[1] - 6 * fcam.s); g.lineTo(tr[0], tr[1] + 6 * fcam.s); g.stroke();   // tail rotor
+    cuboid(g, gx - 0.3, gy - 0.22, 0.62, 0.44, 0.3, "#3a5a8a", { z, win: "#bfe6ff" });              // cabin
+    const rc = isoPt(gx, gy, z + 0.36), spin = now / 26;                                            // spinning main rotor
+    g.save(); g.strokeStyle = "#6b7681"; g.lineWidth = lw2(); const mast = isoPt(gx, gy, z + 0.3); g.beginPath(); g.moveTo(mast[0], mast[1]); g.lineTo(rc[0], rc[1]); g.stroke();
+    g.globalAlpha = 0.14; g.fillStyle = "#20303f"; g.beginPath(); g.ellipse(rc[0], rc[1], 30 * fcam.s, 12 * fcam.s, 0, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = 0.4; g.strokeStyle = "#20303f"; g.lineWidth = 1.6; g.beginPath(); g.ellipse(rc[0], rc[1], 30 * fcam.s, 12 * fcam.s, spin, 0, Math.PI); g.stroke(); g.restore();
   }
   function drawRadome(g, gx, gy, rad, h, col) {
     cylinder(g, gx, gy, rad * 0.85, h * 0.4, "#8a929a");                                            // base
@@ -4725,7 +4736,7 @@
       case "containership": drawContainerShip(g, s, now); break;
       case "crane": drawCraneFac(g, s, now); break;
       case "radome": drawRadome(g, s.gx, s.gy, s.w, h, col); break;
-      case "helipad": drawHelipad(g, s.gx, s.gy, s.w); break;
+      case "helipad": drawHelipad(g, s.gx, s.gy, s.w, now); break;
       case "tent": drawTent(g, s.gx, s.gy, s.w, s.d, h, col); break;
       case "opensilo": drawOpenSilo(g, s.gx, s.gy, s.w, h, col); break;
       case "lighthouse": drawLighthouse(g, s.gx, s.gy, h, now); break;
