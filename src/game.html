@@ -4809,6 +4809,8 @@
       g.fillStyle = `rgba(196,255,150,${0.1 + pulse * 0.5})`; g.beginPath(); g.arc(bx, by, (1.1 + pulse * 1.5) * fcam.s, 0, Math.PI * 2); g.fill(); } }
     else if (!mood.rain) { for (let k = 0; k < 26; k++) { const bx = (k * 127.3 + now * 0.012 * (1 + (k % 3))) % fw2, by = (k * 53.1 + Math.sin(now / 1700 + k) * 22) % fh2, tw = (Math.sin(now / 700 + k) + 1) / 2;
       g.fillStyle = `rgba(255,250,228,${0.04 + tw * 0.13})`; g.beginPath(); g.arc(bx, by, 1.1 * fcam.s, 0, Math.PI * 2); g.fill(); } }
+    else { for (let k = 0; k < 5; k++) { const mx = (((k * 0.31 + 0.1) * fw2 + now / 64) % (fw2 + 320)) - 160, my = horizon + 14 + k * (fh2 - horizon) * 0.15;   // low banks of mist rolling through the rain
+      g.fillStyle = "rgba(214,224,232,0.1)"; g.beginPath(); g.ellipse(mx, my, 150, 22, 0, 0, Math.PI * 2); g.ellipse(mx + 110, my + 6, 110, 18, 0, 0, Math.PI * 2); g.fill(); } }
     g.restore();
     if (mood.tint) { g.fillStyle = mood.tint; g.fillRect(0, 0, fw2, fh2); }        // a wash of the day's light over the whole scene
     const vg = g.createRadialGradient(fw2 / 2, fh2 * 0.56, fh2 * 0.32, fw2 / 2, fh2 * 0.56, fh2 * 0.92);   // a soft cinematic vignette
