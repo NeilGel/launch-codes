@@ -3919,6 +3919,31 @@
     beacon(g, top[0], top[1], now, (gx * 5) | 0);
   }
 
+  // ---- A launch vehicle: white stage body, a red nose cone, tail fins and a wisp of vapour ----
+  function drawRocket(g, gx, gy, rad, h, col, now) {
+    for (let f = 0; f < 3; f++) { const a = f / 3 * Math.PI * 2 + 0.6, bx = gx + Math.cos(a) * rad * 0.75, by = gy + Math.sin(a) * rad * 0.75;   // tail fins
+      poly(g, [isoPt(bx, by, 0), isoPt(bx + Math.cos(a) * rad, by + Math.sin(a) * rad, 0), isoPt(bx, by, h * 0.26)], shade(col, 0.7), OUT, lw2()); }
+    cylinder(g, gx, gy, rad, h * 0.78, col);                                        // stage body
+    const bandZ = h * 0.5, seg = 14, ring = [];                                     // a dark band round the middle
+    g.strokeStyle = shade(col, 0.5); g.lineWidth = lw2() * 1.4; g.beginPath();
+    for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2, p = isoPt(gx + Math.cos(a) * rad, gy + Math.sin(a) * rad, bandZ); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.stroke();
+    const base = [], apex = isoPt(gx, gy, h + rad * 1.7);                            // nose cone
+    for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2; base.push(isoPt(gx + Math.cos(a) * rad * 0.96, gy + Math.sin(a) * rad * 0.96, h * 0.78)); }
+    for (let i = 0; i < seg; i++) poly(g, [base[i], base[i + 1], apex], shade("#d94b3a", i < seg / 2 ? 1.06 : 0.78), OUT, lw2());
+    if (now) smoke(g, gx, gy, 0.04, now, (gx * 7) | 0);
+  }
+  // ---- A parked jet: pointed fuselage, swept delta wings, a glass canopy, tail fin and engine glow ----
+  function drawJet(g, gx, gy, w, d, col) {
+    const cx = gx + w / 2, cy = gy + d / 2, z = 0.42;
+    footing(g, gx + w * 0.2, cy - 0.12, w * 0.6, 0.24, "#7a828c");                   // landing gear shadow/plinth
+    poly(g, [isoPt(gx - 0.05, cy + 0.05, z), isoPt(cx - 0.12, cy + 0.05, z), isoPt(cx - 0.12, cy + 0.34, z)], shade(col, 0.88), OUT, lw2());   // left swept wing
+    poly(g, [isoPt(gx + w + 0.05, cy + 0.05, z), isoPt(cx + 0.12, cy + 0.05, z), isoPt(cx + 0.12, cy + 0.34, z)], shade(col, 1.0), OUT, lw2()); // right swept wing
+    poly(g, [isoPt(cx, gy - 0.12, z), isoPt(cx + 0.13, cy, z), isoPt(cx + 0.1, gy + d + 0.02, z), isoPt(cx - 0.1, gy + d + 0.02, z), isoPt(cx - 0.13, cy, z)], shade(col, 1.08), OUT, lw2());   // fuselage
+    poly(g, [isoPt(cx - 0.1, cy + 0.22, z), isoPt(cx + 0.1, cy + 0.22, z), isoPt(cx + 0.07, cy + 0.5, z), isoPt(cx - 0.07, cy + 0.5, z)], shade(col, 0.82), OUT, lw2());   // tailplane
+    const cp = isoPt(cx, cy - 0.14, z + 0.05); g.fillStyle = "#8fd0ff"; g.strokeStyle = OUT; g.lineWidth = 1; g.beginPath(); g.ellipse(cp[0], cp[1], 5 * fcam.s, 3.2 * fcam.s, 0, 0, Math.PI * 2); g.fill(); g.stroke();   // canopy
+    const e = isoPt(cx, gy + d + 0.02, z); g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(130,195,255,0.55)"; g.beginPath(); g.arc(e[0], e[1], 3.4 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();   // exhaust glow
+  }
+
   // ---- The 14 facility scenes. Each returns destructible structures on a themed plate. ----
   const S = (shape, gx, gy, w, d, h, color, opts) => ({ shape, gx, gy, w, d, h, color, opts: opts || {}, hp: (opts && opts.hp) || 2, max: (opts && opts.hp) || 2 });
   const scatter = (rng, n, kinds) => { const out = []; for (let k = 0; k < n; k++) { const a = rng() * Math.PI * 2, r = 1.6 + rng() * 2.2; out.push(kinds(Math.cos(a) * r, Math.sin(a) * r, rng, k)); } return out; };
@@ -4351,17 +4376,32 @@
     const broken = s.hp < s.max ? (((s.gx * 13 + s.gy * 7) | 0) | 1) : 0;    // once hit, its glass is blown out
     switch (s.shape) {
       case "tower": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, broken, parapet: true, base: true }); if (s.opts.roof) cuboid(g, s.gx + 0.1, s.gy + 0.1, s.w - 0.2, s.d - 0.2, 0.2, s.opts.roof, { z: h }); break;
-      case "box": case "shed": case "dock": case "launcher": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, broken, roof: s.opts.roof && shade(s.opts.roof, 1), door: s.shape !== "dock" && h > 1.1, parapet: s.shape === "box" && !s.opts.roof, base: s.shape === "box" && h > 1.4 }); if (s.shape === "launcher") { const t = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h); g.strokeStyle = "#2c3330"; g.lineWidth = lw2() * 1.6; for (let q = -1; q <= 1; q += 2) { g.beginPath(); g.moveTo(t[0] + q * 6, t[1]); g.lineTo(t[0] + q * 10, t[1] - 20 * fcam.s); g.stroke(); } } break;
+      case "box": case "shed": case "dock": case "launcher": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, broken, roof: s.opts.roof && shade(s.opts.roof, 1), door: s.shape !== "dock" && h > 1.1, parapet: s.shape === "box" && !s.opts.roof, base: s.shape === "box" && h > 1.4 }); if (s.shape === "launcher") { const base = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h);   // a rack of erect missiles, warheads up
+        for (let q = 0; q < 3; q++) { const x0 = base[0] + (q - 1) * 8 * fcam.s, y0 = base[1] - 2 * fcam.s, x1 = x0 + 5 * fcam.s, y1 = y0 - 27 * fcam.s;
+          g.strokeStyle = "#e9edf1"; g.lineWidth = lw2() * 2.4; g.lineCap = "round"; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); g.lineCap = "butt";
+          g.strokeStyle = "#aeb6be"; g.lineWidth = lw2(); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 - 3 * fcam.s, y0 + 3 * fcam.s); g.moveTo(x0, y0); g.lineTo(x0 + 4 * fcam.s, y0 + 2 * fcam.s); g.stroke();   // tail fins
+          g.fillStyle = "#d64b3a"; g.beginPath(); g.arc(x1, y1, 2.4 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = 1; g.stroke(); } } break;
       case "hangar": cuboid(g, s.gx, s.gy, s.w, s.d, h * 0.6, col); { const cz = h * 0.6; const a = isoPt(s.gx, s.gy + s.d / 2, cz), b = isoPt(s.gx + s.w, s.gy + s.d / 2, cz), ap = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, cz + h * 0.7); poly(g, [isoPt(s.gx, s.gy, cz), isoPt(s.gx + s.w, s.gy, cz), isoPt(s.gx + s.w / 2, s.gy, cz + h * 0.7)], shade(col, 1.1), OUT, lw2()); poly(g, [isoPt(s.gx, s.gy, cz), isoPt(s.gx, s.gy + s.d, cz), isoPt(s.gx + s.w / 2, s.gy + s.d, cz + h * 0.7), isoPt(s.gx + s.w / 2, s.gy, cz + h * 0.7)], shade(col, 0.8), OUT, lw2()); } break;
       case "dome": cuboid(g, s.gx - (s.w) / 2 + 0.2, s.gy - (s.d) / 2 + 0.2, (s.w) - 0.4, (s.d) - 0.4, h * 0.5, shade(col, 0.9)); dome(g, s.gx + 0 * s.w, s.gy, (s.w || 1.2) * 0.6, h * 0.5, col); break;
-      case "silo": cylinder(g, s.gx, s.gy, s.w, h, col, { cap: shade(col, 0.7), capH: s.w * 1.1 }); break;
-      case "cyl": case "chimney": case "rocket": cylinder(g, s.gx, s.gy, s.w, h, col, { taper: s.shape === "rocket" ? 0.7 : 1, cap: s.shape === "rocket" ? "#d64b3a" : null, capH: s.w }); break;
+      case "silo": { cylinder(g, s.gx, s.gy, s.w, h, col); const top = isoPt(s.gx, s.gy, h), R = s.w * fcam.tw * fcam.s;
+        g.save(); g.translate(top[0], top[1]); g.scale(1, 0.5);
+        g.fillStyle = shade(col, 0.58); g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = lw2(); g.stroke();   // heavy blast door
+        g.fillStyle = "#e0b83a"; g.beginPath(); g.arc(0, 0, R * 0.56, 0, Math.PI * 2); g.fill();                                                       // yellow hazard hatch
+        g.strokeStyle = "#20242a"; g.lineWidth = lw2(); g.beginPath(); g.arc(0, 0, R * 0.56, 0, Math.PI * 2); g.moveTo(-R * 0.56, 0); g.lineTo(R * 0.56, 0); g.moveTo(0, -R * 0.56); g.lineTo(0, R * 0.56); g.stroke();
+        g.restore(); } break;
+      case "rocket": drawRocket(g, s.gx, s.gy, s.w, h, col, now); break;
+      case "cyl": case "chimney": cylinder(g, s.gx, s.gy, s.w, h, col); break;
       case "cool": turbine(g, s.gx, s.gy, s.w, col); break;
       case "dish": dish(g, s.gx, s.gy, s.w, s.d, col, now); break;
       case "gantry": lattice(g, s.gx, s.gy, s.w, s.d, h, col); break;
       case "pylon": lattice(g, s.gx, s.gy, s.w, s.d, h, col); { const t = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h); g.strokeStyle = col; g.beginPath(); g.moveTo(t[0] - 30, t[1] + 6); g.lineTo(t[0], t[1]); g.lineTo(t[0] + 30, t[1] + 6); g.stroke(); } break;
-      case "vehicle": cuboid(g, s.gx, s.gy, s.w, s.d, h, col); cuboid(g, s.gx + 0.2, s.gy + 0.15, s.w - 0.5, s.d - 0.4, h * 0.9, shade(col, 0.9), { z: h }); { const t = isoPt(s.gx + s.w, s.gy + s.d / 2, h + h * 0.5); g.strokeStyle = "#2b312a"; g.lineWidth = lw2() * 1.8; g.beginPath(); g.moveTo(t[0] - 10, t[1]); g.lineTo(t[0] + 14, t[1] - 3); g.stroke(); } break;
-      case "plane": { const cx = s.gx + s.w / 2, cy = s.gy + s.d / 2; cuboid(g, cx - 0.15, s.gy, 0.3, s.d, h, col); const wl = isoPt(s.gx, cy, h * 0.6), wr = isoPt(s.gx + s.w, cy, h * 0.6), nn = isoPt(cx, s.gy, h * 0.6), tt = isoPt(cx, s.gy + s.d, h * 0.6); poly(g, [wl, nn, wr, tt], shade(col, 1.05), OUT, lw2()); const fin = isoPt(cx, s.gy + s.d, h + 0.6 * fcam.th); poly(g, [isoPt(cx, s.gy + s.d * 0.8, h), isoPt(cx, s.gy + s.d, h), fin], shade(col, 0.8), OUT, lw2()); } break;
+      case "vehicle": { const w = s.w, d = s.d;                                        // a military truck: cab, canvas-tilt bed and wheels
+        cuboid(g, s.gx, s.gy + 0.06, w, d - 0.12, h * 0.5, shade(col, 0.9));            // chassis / flatbed
+        cuboid(g, s.gx, s.gy + 0.1, w * 0.56, d - 0.2, h * 0.72, shade(col, 0.82), { z: h * 0.5 });   // canvas tilt over the bed
+        cuboid(g, s.gx + w * 0.6, s.gy + 0.04, w * 0.4, d - 0.08, h * 0.85, shade(col, 1.12), { z: 0, win: "#bfe6ff" });   // cab
+        g.fillStyle = "#22271f"; g.strokeStyle = OUT; g.lineWidth = 1;
+        for (const wx of [s.gx + 0.18, s.gx + w * 0.55, s.gx + w - 0.2]) for (const wy of [s.gy + 0.02, s.gy + d - 0.02]) { const wp = isoPt(wx, wy, 0.06); g.beginPath(); g.ellipse(wp[0], wp[1], 3.6 * fcam.s, 2.6 * fcam.s, 0, 0, Math.PI * 2); g.fill(); g.stroke(); } } break;
+      case "plane": drawJet(g, s.gx, s.gy, s.w, s.d, col); break;
       case "ship": { const hw = s.w, hd = s.d, hullH = h * 0.5;
         cuboid(g, s.gx, s.gy, hw, hd, hullH, col);                                                // hull
         const p1 = isoPt(s.gx + hw, s.gy, hullH), p2 = isoPt(s.gx + hw, s.gy + hd, hullH), p3 = isoPt(s.gx + hw + 0.55, s.gy + hd / 2, hullH), b1 = isoPt(s.gx + hw, s.gy, 0), b3 = isoPt(s.gx + hw + 0.55, s.gy + hd / 2, 0);
@@ -4372,7 +4412,15 @@
       case "span": { const y = s.gy; cuboid(g, s.gx, y, s.w, s.d, s.h, col); const a = isoPt(s.gx + 1.4, y + s.d / 2, s.h + 2.6), b = isoPt(s.gx + s.w - 1.4, y + s.d / 2, s.h + 2.6); g.strokeStyle = "#d64b63"; g.lineWidth = lw2() * 1.3; for (let q = 0; q <= 10; q++) { const p = isoPt(s.gx + 0.5 + q / 10 * (s.w - 1), y + s.d / 2, s.h); const anc = q < 5 ? a : b; g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(anc[0], anc[1]); g.stroke(); } } break;
       case "deck": bridgeDeck(g, s, now); break;
       case "brpylon": bridgePylon(g, s, now); break;
-      case "train": for (let q = 0; q < 4; q++) cuboid(g, s.gx + q * (s.w / 4), s.gy, s.w / 4 - 0.12, s.d, s.h, q === 0 ? shade(col, 1.15) : col, { win: "#ffe08a" }); break;
+      case "train": {                                                                  // locomotive + carriages on rails, with a pantograph
+        g.strokeStyle = "#8a9098"; g.lineWidth = lw2() * 0.8;
+        for (const ry of [s.gy + 0.14, s.gy + s.d - 0.14]) { const a = isoPt(s.gx - 0.3, ry, 0), b = isoPt(s.gx + s.w + 0.3, ry, 0); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+        g.strokeStyle = "#6b5a44"; g.lineWidth = lw2(); for (let sx = s.gx; sx <= s.gx + s.w; sx += 0.26) { const a = isoPt(sx, s.gy + 0.1, 0), b = isoPt(sx, s.gy + s.d - 0.1, 0); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+        const cars = 4, cw = s.w / cars;
+        for (let q = 0; q < cars; q++) { const loco = q === 0;
+          cuboid(g, s.gx + q * cw + 0.05, s.gy + 0.06, cw - 0.12, s.d - 0.12, s.h * (loco ? 1.12 : 1), loco ? shade(col, 1.16) : col, { win: "#ffe08a", roof: loco ? shade(col, 0.68) : null });
+          g.fillStyle = "#20251c"; for (const wx of [s.gx + q * cw + 0.16, s.gx + q * cw + cw - 0.2]) { const wp = isoPt(wx, s.gy + s.d * 0.5, 0.05); g.beginPath(); g.ellipse(wp[0], wp[1], 3 * fcam.s, 2.1 * fcam.s, 0, 0, Math.PI * 2); g.fill(); } }
+        const pb = isoPt(s.gx + 0.32, s.gy + s.d / 2, s.h * 1.12), pt = isoPt(s.gx + 0.32, s.gy + s.d / 2, s.h * 1.12 + 0.5); g.strokeStyle = OUT; g.lineWidth = lw2(); g.beginPath(); g.moveTo(pb[0], pb[1]); g.lineTo(pt[0], pt[1]); g.stroke(); } break;
       case "runway": { const t = [isoPt(s.gx, s.gy, 0), isoPt(s.gx + s.w, s.gy, 0), isoPt(s.gx + s.w, s.gy + s.d, 0), isoPt(s.gx, s.gy + s.d, 0)]; poly(g, t, col, OUT, lw2()); g.save(); g.beginPath(); g.moveTo(t[0][0], t[0][1]); for (const p of t) g.lineTo(p[0], p[1]); g.closePath(); g.clip(); g.strokeStyle = "#e8ecw"; g.setLineDash([12, 10]); g.strokeStyle = "#eef2f6"; g.lineWidth = 2 * fcam.s; const m0 = isoPt(s.gx, s.gy + s.d / 2, 0), m1 = isoPt(s.gx + s.w, s.gy + s.d / 2, 0); g.beginPath(); g.moveTo(m0[0], m0[1]); g.lineTo(m1[0], m1[1]); g.stroke(); g.setLineDash([]); g.restore(); } break;
       case "pole": { const a = isoPt(s.gx, s.gy, 0), b = isoPt(s.gx, s.gy, s.h); g.strokeStyle = col; g.lineWidth = lw2() * 1.4; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); if (s.opts.flag) { poly(g, [b, [b[0] + 22 * fcam.s, b[1] + 4], [b[0], b[1] + 12 * fcam.s]], "#ff3b5c", OUT, lw2()); } if (s.opts.signal) { g.fillStyle = (Math.floor(now / 700) % 2) ? "#4dffb0" : "#ff3b5c"; g.beginPath(); g.arc(b[0], b[1], 4 * fcam.s, 0, Math.PI * 2); g.fill(); } } break;
       default: cuboid(g, s.gx, s.gy, s.w || 1, s.d || 1, h, col, { win: s.opts.win });
