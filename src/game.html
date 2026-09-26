@@ -4364,13 +4364,15 @@
   function attackerFire(F, a, s) {
     const tp = targetScreen(s), tur = attackerTurret(a);
     a.angle = Math.atan2(tp[1] - tur[1], tp[0] - tur[0]); a.fireT = performance.now();
+    const now = performance.now();
+    const puff = (mx, my, n) => { for (let k = 0; k < n; k++) F.fx.push({ kind: "smoke", x: mx, y: my, vx: Math.cos(a.angle) * 20 * fcam.s + (Math.random() - 0.5) * 10, vy: Math.sin(a.angle) * 14 * fcam.s - 6 - Math.random() * 6, t0: now, dur: 650 + Math.random() * 450, s: (4 + Math.random() * 4) * fcam.s, shade: 120 + Math.random() * 24 }); };   // a cloud of gunsmoke at the muzzle
     if (a.unit === "mlrs") {                                                            // a salvo of three rockets streaking in
-      for (let k = 0; k < 3; k++) F.shells.push({ type: "rocket", from: [tur[0], tur[1]], to: [tp[0] + (k - 1) * 7 * fcam.s, tp[1]], t0: performance.now() + k * 110, dur: 480, arc: 40, s });
-      F.fx.push({ kind: "flash", x: tur[0], y: tur[1] - 4, t0: performance.now(), dur: 170, R: 22 });
+      for (let k = 0; k < 3; k++) F.shells.push({ type: "rocket", from: [tur[0], tur[1]], to: [tp[0] + (k - 1) * 7 * fcam.s, tp[1]], t0: now + k * 110, dur: 480, arc: 40, s });
+      F.fx.push({ kind: "flash", x: tur[0], y: tur[1] - 4, t0: now, dur: 170, R: 22 }); puff(tur[0], tur[1] - 4, 5);
     } else {
       const len = (a.unit === "arty" ? 30 : 22) * fcam.s, tip = [tur[0] + Math.cos(a.angle) * len, tur[1] + Math.sin(a.angle) * len];
-      F.shells.push({ type: "shell", from: tip.slice(), to: tp, t0: performance.now(), dur: a.unit === "arty" ? 560 : 380, arc: a.unit === "arty" ? 130 : 70, s });
-      F.fx.push({ kind: "flash", x: tip[0], y: tip[1], t0: performance.now(), dur: 130, R: 16 });
+      F.shells.push({ type: "shell", from: tip.slice(), to: tp, t0: now, dur: a.unit === "arty" ? 560 : 380, arc: a.unit === "arty" ? 130 : 70, s });
+      F.fx.push({ kind: "flash", x: tip[0], y: tip[1], t0: now, dur: 130, R: 16 }); puff(tip[0], tip[1], 4);
     }
   }
   function drawAttacker(g, a, now) {
@@ -4575,6 +4577,8 @@
     drawFacFx(g, F, now);
     g.restore();
     if (mood.tint) { g.fillStyle = mood.tint; g.fillRect(0, 0, fw2, fh2); }        // a wash of the day's light over the whole scene
+    const vg = g.createRadialGradient(fw2 / 2, fh2 * 0.56, fh2 * 0.32, fw2 / 2, fh2 * 0.56, fh2 * 0.92);   // a soft cinematic vignette
+    vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(10,16,26,0.22)"); g.fillStyle = vg; g.fillRect(0, 0, fw2, fh2);
     if (mood.rain) { g.strokeStyle = "rgba(206,220,230,0.4)"; g.lineWidth = 1;     // slanting rain on overcast days
       for (let k = 0; k < 90; k++) { const rx = (k * 137 + now * 0.55) % (fw2 + 30) - 15, ry = (k * 83 + now * 1.1) % (fh2 + 20); g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx - 4, ry + 13); g.stroke(); } }
   }
