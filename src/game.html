@@ -4611,11 +4611,11 @@
 
   // Each site keeps its own weather/time-of-day, picked from its position — clear, golden hour or overcast.
   const FAC_MOODS = [
-    { sky: ["#74bdf4", "#d6ecff"], sun: "255,247,222", sunA: 0.85, sunX: 0.8, sunY: 0.36, tint: null },
-    { sky: ["#74bdf4", "#d6ecff"], sun: "255,247,222", sunA: 0.85, sunX: 0.8, sunY: 0.36, tint: null },
-    { sky: ["#f0b26a", "#ffe6c2"], sun: "255,224,168", sunA: 0.95, sunX: 0.82, sunY: 0.52, tint: "rgba(255,186,110,0.12)" },
-    { sky: ["#9aa8b4", "#ccd5dd"], sun: "236,239,241", sunA: 0.35, sunX: 0.7, sunY: 0.3, tint: "rgba(150,162,172,0.14)", rain: true },
-    { sky: ["#141d3a", "#39476f"], sun: "232,238,255", sunA: 0.7, sunX: 0.76, sunY: 0.32, tint: "rgba(16,24,58,0.4)", night: true },
+    { sky: ["#74bdf4", "#d6ecff"], sun: "255,247,222", sunA: 0.85, sunX: 0.8, sunY: 0.36, tint: null, cloud: "rgba(255,255,255,0.82)" },
+    { sky: ["#74bdf4", "#d6ecff"], sun: "255,247,222", sunA: 0.85, sunX: 0.8, sunY: 0.36, tint: null, cloud: "rgba(255,255,255,0.82)" },
+    { sky: ["#f0b26a", "#ffe6c2"], sun: "255,224,168", sunA: 0.95, sunX: 0.82, sunY: 0.52, tint: "rgba(255,186,110,0.12)", cloud: "rgba(255,222,196,0.85)" },
+    { sky: ["#9aa8b4", "#ccd5dd"], sun: "236,239,241", sunA: 0.35, sunX: 0.7, sunY: 0.3, tint: "rgba(150,162,172,0.14)", rain: true, cloud: "rgba(176,186,196,0.9)" },
+    { sky: ["#141d3a", "#39476f"], sun: "232,238,255", sunA: 0.7, sunX: 0.76, sunY: 0.32, tint: "rgba(16,24,58,0.4)", night: true, cloud: "rgba(66,78,106,0.7)" },
   ];
   function drawFacility(now) {
     const F = ui.facility; if (!F || !fw2) return;
@@ -4638,7 +4638,7 @@
     const sg = g.createRadialGradient(sunX, sunY, 4, sunX, sunY, 130); sg.addColorStop(0, `rgba(${mood.sun},${mood.sunA})`); sg.addColorStop(1, `rgba(${mood.sun},0)`);
     g.fillStyle = sg; g.beginPath(); g.arc(sunX, sunY, 130, 0, Math.PI * 2); g.fill();
     g.fillStyle = `rgba(${mood.sun},${Math.min(1, mood.sunA + 0.1)})`; g.beginPath(); g.arc(sunX, sunY, 20, 0, Math.PI * 2); g.fill(); g.restore();
-    g.fillStyle = "#ffffffd0";
+    g.fillStyle = mood.cloud;
     for (let k = 0; k < 4; k++) { const cx = ((k * 0.31 + 0.1) * fw2 + now / 90 % (fw2 + 160)) % (fw2 + 160) - 80, cy = horizon * (0.22 + k * 0.17); g.beginPath(); g.ellipse(cx, cy, 38, 15, 0, 0, Math.PI * 2); g.ellipse(cx + 28, cy + 5, 26, 11, 0, 0, Math.PI * 2); g.ellipse(cx - 26, cy + 6, 22, 10, 0, 0, Math.PI * 2); g.fill(); }
     g.strokeStyle = "rgba(38,58,78,0.5)"; g.lineWidth = 1.4;                        // a few birds drifting past
     for (let k = 0; k < 5; k++) { const bx = (now / 38 + k * 170) % (fw2 + 80) - 40, by = horizon * 0.28 + k * 13 + Math.sin(now / 520 + k) * 4, fl = 3.5 + Math.sin(now / 150 + k * 1.3) * 2.5; g.beginPath(); g.moveTo(bx - fl, by + 2); g.lineTo(bx, by - 2); g.lineTo(bx + fl, by + 2); g.stroke(); }
