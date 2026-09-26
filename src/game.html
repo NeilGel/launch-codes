@@ -4042,6 +4042,15 @@
     for (let i = 0; i <= mseg; i++) { const a = i / mseg * Math.PI * 2; nb.push(isoPt(gx + Math.cos(a) * rad * 0.4, gy + Math.sin(a) * rad * 0.4, h - 0.2 + 0.5)); }
     for (let i = 0; i < mseg; i++) poly(g, [nb[i], nb[i + 1], apex], shade("#d94b3a", i < mseg / 2 ? 1.05 : 0.78), OUT, lw2());   // nose cone
   }
+  function floodlight(g, gx, gy, now) {                                                             // a perimeter light mast with a bank of lamps
+    const h = 3.0, base = isoPt(gx, gy, 0), top = isoPt(gx, gy, h);
+    g.strokeStyle = "#6b7681"; g.lineWidth = lw2() * 1.6; g.beginPath(); g.moveTo(base[0], base[1]); g.lineTo(top[0], top[1]); g.stroke();
+    for (let q = 1; q <= 2; q++) { const m = isoPt(gx, gy, h * q / 3); g.beginPath(); g.moveTo(m[0] - 5 * fcam.s, m[1]); g.lineTo(m[0] + 5 * fcam.s, m[1]); g.stroke(); }   // cross-braces
+    const bx = top[0], by = top[1] - 3 * fcam.s, S2 = fcam.s;                                       // stadium light housing with a warm glow
+    g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,244,200,0.5)"; g.beginPath(); g.ellipse(bx, by, 14 * S2, 7 * S2, 0, 0, Math.PI * 2); g.fill(); g.restore();
+    g.fillStyle = "#3a4048"; g.strokeStyle = OUT; g.lineWidth = 1; g.fillRect(bx - 9 * S2, by - 3 * S2, 18 * S2, 4.5 * S2); g.strokeRect(bx - 9 * S2, by - 3 * S2, 18 * S2, 4.5 * S2);
+    g.fillStyle = "#fff4c8"; for (let k = 0; k < 4; k++) g.fillRect(bx - 8 * S2 + k * 4.5 * S2, by - 2 * S2, 3 * S2, 2.6 * S2);
+  }
   function drawFactoryHall(g, s, col) {
     const w = s.w, d = s.d, h = s.h, hurt = s.hp < s.max, n = 4;
     cuboid(g, s.gx, s.gy, w, d, h, col, { win: s.opts.win, broken: hurt ? 5 : 0 });
@@ -4462,12 +4471,20 @@
     const pad = [isoPt(-G0, -G0, 0), isoPt(G0, -G0, 0), isoPt(G0, G0, 0), isoPt(-G0, G0, 0)];
     g.beginPath(); g.moveTo(pad[0][0], pad[0][1]); for (const p of pad) g.lineTo(p[0], p[1]); g.closePath();
     g.fillStyle = water ? mix(gc, "#b8a889", 0.35) : shade(gc, 0.93); g.fill(); g.strokeStyle = shade(gc, 0.66); g.lineWidth = lw2() * 0.9; g.stroke();
-    // chain-link fence along the two back edges of the compound
-    if (!water) { g.strokeStyle = "#8b929a"; g.lineWidth = lw2() * 0.8;
-      for (const [ax, ay, bx, by] of [[-G0, -G0, G0, -G0], [-G0, -G0, -G0, G0]]) {
-        for (let u = 0; u <= 1; u += 1 / 10) { const px = ax + (bx - ax) * u, py = ay + (by - ay) * u, p0 = isoPt(px, py, 0), p1 = isoPt(px, py, 0.4); g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke(); }
-        const r0 = isoPt(ax, ay, 0.4), r1 = isoPt(bx, by, 0.4); g.beginPath(); g.moveTo(r0[0], r0[1]); g.lineTo(r1[0], r1[1]); g.stroke();
+    // chain-link fence right round the compound, with a gateway where the road comes in, and lit mast towers at the back
+    if (!water) {
+      const edges = [[-G0, -G0, G0, -G0, false], [-G0, -G0, -G0, G0, false], [G0, -G0, G0, G0, false], [-G0, G0, G0, G0, true]];   // last edge (front) has the gate
+      for (const [ax, ay, bx, by, gate] of edges) {
+        g.strokeStyle = "#8b929a"; g.lineWidth = lw2() * 0.8;
+        for (let u = 0; u <= 1; u += 1 / 12) { const px = ax + (bx - ax) * u, py = ay + (by - ay) * u;
+          if (gate && Math.abs(px) < 1.35) continue;
+          const p0 = isoPt(px, py, 0), p1 = isoPt(px, py, 0.4); g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke(); }
+        if (gate) {
+          for (const [sx, ex] of [[-G0, -1.35], [1.35, G0]]) { const a = isoPt(sx, G0, 0.4), b = isoPt(ex, G0, 0.4); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+          g.strokeStyle = "#6b7681"; g.lineWidth = lw2() * 1.5; for (const gx2 of [-1.35, 1.35]) { const a = isoPt(gx2, G0, 0), b = isoPt(gx2, G0, 0.62); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }   // gate posts
+        } else { const r0 = isoPt(ax, ay, 0.4), r1 = isoPt(bx, by, 0.4); g.beginPath(); g.moveTo(r0[0], r0[1]); g.lineTo(r1[0], r1[1]); g.stroke(); }
       }
+      floodlight(g, -G0 + 0.25, -G0 + 0.25, now); floodlight(g, G0 - 0.25, -G0 + 0.25, now);
     }
     // ---- Everything on the land — far trees, buildings, decor and your attackers — painted back to front ----
     const depth = s => s.gx + s.gy + (s.unit ? 0.3 : 0) - (s.dead && !s.collapsing ? 9 : 0);
