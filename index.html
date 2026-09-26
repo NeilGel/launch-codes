@@ -279,8 +279,10 @@
 
   @media (prefers-reduced-motion: reduce) { .hud .alarm { animation: none; } }
 
-  /* ---- Facility mode: a bright cartoon arcade close-up that takes over the whole stage ---- */
+  /* ---- Facility mode: a bright cartoon arcade close-up that takes over the WHOLE screen ---- */
   #facility { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 4; touch-action: none; cursor: crosshair; }
+  /* When storming a site the scene goes edge-to-edge over the top bar, dock and side panel. */
+  .globe-wrap.at-facility #facility, .globe-wrap.at-facility .fac-ui { position: fixed; inset: 0; width: 100vw; height: var(--vvh, 100svh); z-index: 200; }
   .globe-wrap.at-facility #globe, .globe-wrap.at-facility #theatre, .globe-wrap.at-facility .war-ui,
   .globe-wrap.at-facility .scan, .globe-wrap.at-facility .hud, .globe-wrap.at-facility .gctl,
   .globe-wrap.at-facility .target, .globe-wrap.at-facility .toast { display: none !important; }
@@ -4006,11 +4008,12 @@
     scene.worth = site.max / total;
     scene.decor = makeDecor(scene, seeded(i * 17 + k * 101 + 3));
     scene.land = makeLandscape(scene, seeded(i * 29 + k * 53 + 11));
-    // Your assault force, lined up along the near edge facing the facility.
+    // Your assault force, lined up along the near edge facing the facility. Drag them anywhere; tap a
+    // building and the nearest gun fires — tanks lob shells, the launcher salvoes rockets.
     scene.attackers = [
-      { unit: "tank", gx: -2.3, gy: 3.0, col: "#5c6b45" },
-      { unit: "arty", gx: -0.1, gy: 3.35, col: "#4c5840" },
-      { unit: "tank", gx: 2.1, gy: 3.0, col: "#5c6b45" },
+      { unit: "tank", gx: -2.6, gy: 3.0, col: "#5c6b45" },
+      { unit: "mlrs", gx: 0.0, gy: 3.45, col: "#4c5840" },
+      { unit: "tank", gx: 2.4, gy: 3.0, col: "#5c6b45" },
     ];
     return scene;
   }
@@ -4183,31 +4186,52 @@
     return out;
   }
 
-  // ---- Your assault force: tanks and artillery lined up at the near edge that actually fire the shells ----
+  // ---- Your assault force: tanks and a rocket launcher you can drag around, that fire at what you tap ----
   const centreScreen = () => isoPt(0, 0, 1);
   const targetScreen = s => isoPt(s.gx + (s.w || 1) / 2, s.gy + (s.d || 1) / 2, (s.h || 2) * 0.55);
-  function attackerTurret(a) { return isoPt(a.gx + (a.unit === "arty" ? 0.5 : 0.42), a.gy + 0.28, (a.unit === "arty" ? 0.34 : 0.3) + 0.2); }
+  function attackerTurret(a) {
+    if (a.unit === "mlrs") return isoPt(a.gx + 0.48, a.gy + 0.3, 0.62);                 // elevated rocket rack
+    return isoPt(a.gx + (a.unit === "arty" ? 0.5 : 0.42), a.gy + 0.28, (a.unit === "arty" ? 0.34 : 0.3) + 0.2);
+  }
   function attackerFire(F, a, s) {
     const tp = targetScreen(s), tur = attackerTurret(a);
     a.angle = Math.atan2(tp[1] - tur[1], tp[0] - tur[0]); a.fireT = performance.now();
-    const len = (a.unit === "arty" ? 30 : 22) * fcam.s, tip = [tur[0] + Math.cos(a.angle) * len, tur[1] + Math.sin(a.angle) * len];
-    F.shells.push({ from: tip.slice(), to: tp, t0: performance.now(), dur: a.unit === "arty" ? 560 : 380, arc: a.unit === "arty" ? 130 : 70, s });
-    F.fx.push({ kind: "flash", x: tip[0], y: tip[1], t0: performance.now(), dur: 130, R: 16 });
+    if (a.unit === "mlrs") {                                                            // a salvo of three rockets streaking in
+      for (let k = 0; k < 3; k++) F.shells.push({ type: "rocket", from: [tur[0], tur[1]], to: [tp[0] + (k - 1) * 7 * fcam.s, tp[1]], t0: performance.now() + k * 110, dur: 480, arc: 40, s });
+      F.fx.push({ kind: "flash", x: tur[0], y: tur[1] - 4, t0: performance.now(), dur: 170, R: 22 });
+    } else {
+      const len = (a.unit === "arty" ? 30 : 22) * fcam.s, tip = [tur[0] + Math.cos(a.angle) * len, tur[1] + Math.sin(a.angle) * len];
+      F.shells.push({ type: "shell", from: tip.slice(), to: tp, t0: performance.now(), dur: a.unit === "arty" ? 560 : 380, arc: a.unit === "arty" ? 130 : 70, s });
+      F.fx.push({ kind: "flash", x: tip[0], y: tip[1], t0: performance.now(), dur: 130, R: 16 });
+    }
   }
   function drawAttacker(g, a, now) {
     const recoil = a.fireT && now - a.fireT < 240 ? 1 - (now - a.fireT) / 240 : 0;
     const tur = attackerTurret(a), ctr = centreScreen();
     const ang = a.angle != null ? a.angle : Math.atan2(ctr[1] - tur[1], ctr[0] - tur[0]);
-    const arty = a.unit === "arty";
-    softShadow(g, a.gx - 0.05, a.gy, arty ? 1.05 : 0.9, 0.62);
-    const bodyH = arty ? 0.34 : 0.3, hullW = arty ? 1.0 : 0.86;
+    const arty = a.unit === "arty", mlrs = a.unit === "mlrs";
+    softShadow(g, a.gx - 0.05, a.gy, arty || mlrs ? 1.05 : 0.9, 0.62);
+    const bodyH = arty || mlrs ? 0.34 : 0.3, hullW = arty || mlrs ? 1.0 : 0.86;
     cuboid(g, a.gx, a.gy - 0.04, hullW, 0.16, bodyH * 0.66, "#1c211a");                   // caterpillar tracks
     cuboid(g, a.gx, a.gy + 0.42, hullW, 0.16, bodyH * 0.66, "#1c211a");
     g.fillStyle = "#33392e"; g.strokeStyle = OUT; g.lineWidth = 1;                        // road wheels on the near track
-    const nW = arty ? 6 : 5;
+    const nW = arty || mlrs ? 6 : 5;
     for (let k = 0; k < nW; k++) { const wp = isoPt(a.gx + 0.12 + k * (hullW - 0.24) / (nW - 1), a.gy + 0.5, 0.05); g.beginPath(); g.ellipse(wp[0], wp[1], 4.2 * fcam.s, 3 * fcam.s, 0, 0, Math.PI * 2); g.fill(); g.stroke(); }
     cuboid(g, a.gx + 0.05, a.gy + 0.06, hullW - 0.1, 0.42, bodyH, a.col);                 // hull
     cuboid(g, a.gx + hullW - 0.18, a.gy + 0.08, 0.16, 0.38, bodyH * 0.72, shade(a.col, 1.2));   // sloped glacis at the front
+    if (mlrs) {                                                                          // rocket launcher: an elevated pod of tubes aimed at the target
+      const rack = cuboid(g, a.gx + 0.3, a.gy + 0.12, 0.4, 0.36, 0.2, shade(a.col, 1.05), { z: bodyH });
+      const bx = rack[0], by = rack[1] - 2 * fcam.s - recoil * 6 * Math.sin(ang), perp = ang + Math.PI / 2;
+      for (let k = -2; k <= 2; k++) {
+        const ox = Math.cos(perp) * k * 3 * fcam.s, oy = Math.sin(perp) * k * 3 * fcam.s;
+        g.strokeStyle = "#2b3128"; g.lineWidth = lw2() * 1.8; g.lineCap = "round";
+        g.beginPath(); g.moveTo(bx + ox - Math.cos(ang) * 4 * fcam.s, by + oy - Math.sin(ang) * 4 * fcam.s); g.lineTo(bx + ox + Math.cos(ang) * 15 * fcam.s, by + oy + Math.sin(ang) * 15 * fcam.s); g.stroke();
+        g.fillStyle = recoil > 0.3 ? "#ffe08a" : "#14181a"; g.beginPath(); g.arc(bx + ox + Math.cos(ang) * 15 * fcam.s, by + oy + Math.sin(ang) * 15 * fcam.s, 1.9 * fcam.s, 0, Math.PI * 2); g.fill();
+      }
+      g.lineCap = "butt";
+      if (recoil > 0.3) { g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = `rgba(255,210,120,${recoil})`; g.beginPath(); g.arc(bx + Math.cos(ang) * 15 * fcam.s, by + Math.sin(ang) * 15 * fcam.s, 13 * fcam.s * recoil, 0, Math.PI * 2); g.fill(); g.restore(); }
+      return;
+    }
     if (arty) cuboid(g, a.gx - 0.14, a.gy + 0.15, 0.14, 0.24, 0.12, shade(a.col, 0.78));  // recoil spade dug in at the rear
     cuboid(g, a.gx + 0.24, a.gy + 0.14, arty ? 0.46 : 0.42, 0.32, bodyH * 0.85, shade(a.col, 1.12), { z: bodyH });   // turret
     cuboid(g, a.gx + 0.31, a.gy + 0.2, 0.16, 0.16, 0.1, shade(a.col, 1.26), { z: bodyH + bodyH * 0.85 });            // commander's cupola
@@ -4362,14 +4386,27 @@
   }
 
   function drawFacFx(g, F, now) {
-    // shells arcing in
+    // shells and rockets arcing in
     F.shells = F.shells.filter(sh => {
       const t = (now - sh.t0) / sh.dur;
+      if (t < 0) return true;                                                 // a salvo round still on the rail
       if (t >= 1) { hitStruct(F, sh.s); return false; }
-      const x = sh.from[0] + (sh.to[0] - sh.from[0]) * t, y = sh.from[1] + (sh.to[1] - sh.from[1]) * t - Math.sin(t * Math.PI) * (sh.arc || 80) * fcam.s;
-      g.save(); g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,177,90,0.5)"; g.lineWidth = 3 * fcam.s;   // a glowing tracer trail
-      g.beginPath(); g.moveTo(x, y); g.lineTo(x - (sh.to[0] - sh.from[0]) * 0.04, y - Math.sin((t - 0.03) * Math.PI) * (sh.arc || 80) * fcam.s + (sh.to[1] - sh.from[1]) * 0.04 + Math.sin(t * Math.PI) * (sh.arc || 80) * fcam.s); g.stroke(); g.restore();
-      g.fillStyle = "#20303f"; g.beginPath(); g.arc(x, y, 4 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = 1; g.stroke();
+      const arc = (sh.arc || 80) * fcam.s;
+      const x = sh.from[0] + (sh.to[0] - sh.from[0]) * t, y = sh.from[1] + (sh.to[1] - sh.from[1]) * t - Math.sin(t * Math.PI) * arc;
+      const t2 = Math.max(0, t - 0.05), px = sh.from[0] + (sh.to[0] - sh.from[0]) * t2, py = sh.from[1] + (sh.to[1] - sh.from[1]) * t2 - Math.sin(t2 * Math.PI) * arc;
+      if (sh.type === "rocket") {
+        if (Math.random() < 0.7) F.fx.push({ kind: "smoke", x: px, y: py, vx: (Math.random() - 0.5) * 8, vy: -4 - Math.random() * 7, t0: now, dur: 460 + Math.random() * 320, s: 3 + Math.random() * 3 });
+        const ang = Math.atan2(y - py, x - px);
+        g.save(); g.translate(x, y); g.rotate(ang);
+        g.fillStyle = "#c94b4b"; g.strokeStyle = OUT; g.lineWidth = 1; const L2 = 9 * fcam.s, W2 = 2.6 * fcam.s;
+        g.beginPath(); g.moveTo(L2, 0); g.lineTo(-L2, -W2); g.lineTo(-L2 * 0.5, 0); g.lineTo(-L2, W2); g.closePath(); g.fill(); g.stroke();
+        g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,205,90,0.9)"; g.beginPath(); g.arc(-L2 - 2 * fcam.s, 0, 3.4 * fcam.s, 0, Math.PI * 2); g.fill();
+        g.restore();
+      } else {
+        g.save(); g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,177,90,0.5)"; g.lineWidth = 3 * fcam.s;   // a glowing tracer trail
+        g.beginPath(); g.moveTo(x, y); g.lineTo(px, py); g.stroke(); g.restore();
+        g.fillStyle = "#20303f"; g.beginPath(); g.arc(x, y, 4 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = 1; g.stroke();
+      }
       return true;
     });
     F.fx = F.fx.filter(p => {
@@ -4399,10 +4436,33 @@
         <div class="fac-title"><b>${FAC[site.t].name}</b><small>${C[F.i].name}${site.name ? " · " + site.name : ""}</small></div>
         <div class="fac-prog-wrap"><b>${down}/${total}</b><div class="fac-prog"><i style="width:${pct}%"></i></div></div>
       </div>
-      ${F.banner ? `<div class="fac-banner"><span>${F.banner}</span></div>` : `<div class="fac-hint">Tap a building to shell it${down ? ` · ${total - down} left` : ""}</div>`}`;
+      ${F.banner ? `<div class="fac-banner"><span>${F.banner}</span></div>` : `<div class="fac-hint">Drag your guns · tap a building to fire${down ? ` · ${total - down} left` : ""}</div>`}`;
   }
   $("facUi").addEventListener("click", e => { const b = e.target.closest("[data-fac]"); if (b && b.dataset.fac === "back") exitFacility(); });
-  facCanvas.addEventListener("pointerdown", e => { if (!ui.facility || (e.pointerType === "mouse" && e.button !== 0)) return; facCanvas.setPointerCapture(e.pointerId); facilityTap(...facLocal(e)); });
+  // Screen point (z=0) back to ground coordinates — the inverse of isoPt, for dragging guns around.
+  const isoInv = (sx, sy) => { const u = (sx - fcam.cx) / (fcam.tw * fcam.s), v = (sy - fcam.cy) / (fcam.th * fcam.s); return [(u + v) / 2, (v - u) / 2]; };
+  function attackerAt(x, y) {
+    const F = ui.facility; if (!F) return null; let best = null, bd = 1e9;
+    for (const a of F.scene.attackers) { const c = isoPt(a.gx + 0.45, a.gy + 0.25, 0.22), d = Math.hypot(x - c[0], y - c[1]); if (d < 30 * fcam.s && d < bd) { bd = d; best = a; } }
+    return best;
+  }
+  let fdrag = null;
+  facCanvas.addEventListener("pointerdown", e => {
+    if (!ui.facility || (e.pointerType === "mouse" && e.button !== 0)) return;
+    facCanvas.setPointerCapture(e.pointerId);
+    const [x, y] = facLocal(e), a = attackerAt(x, y);
+    if (a) { const gp = isoInv(x, y); fdrag = { id: e.pointerId, a, ox: a.gx - gp[0], oy: a.gy - gp[1] }; }
+    else fdrag = { id: e.pointerId, tap: true, sx: x, sy: y, moved: 0 };
+  });
+  facCanvas.addEventListener("pointermove", e => {
+    if (!fdrag || fdrag.id !== e.pointerId || !ui.facility) return;
+    const [x, y] = facLocal(e);
+    if (fdrag.a) { const gp = isoInv(x, y); fdrag.a.gx = clamp(gp[0] + fdrag.ox, -7, 7); fdrag.a.gy = clamp(gp[1] + fdrag.oy, 0.6, 7.5); }
+    else fdrag.moved = Math.max(fdrag.moved, Math.hypot(x - fdrag.sx, y - fdrag.sy));
+  });
+  const facEnd = e => { if (!fdrag || fdrag.id !== e.pointerId) return; if (fdrag.tap && fdrag.moved < 10) facilityTap(fdrag.sx, fdrag.sy); fdrag = null; };
+  facCanvas.addEventListener("pointerup", facEnd);
+  facCanvas.addEventListener("pointercancel", facEnd);
   facCanvas.addEventListener("contextmenu", e => e.preventDefault());
 
   // =====================================================================
