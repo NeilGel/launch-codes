@@ -1245,6 +1245,12 @@
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(gbuf, 0, 0);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    { const { tx, ty, R } = cam, a = now / 2800 % (Math.PI * 2);                   // a slow radar sweep across the hologram
+      ctx.save(); ctx.beginPath(); ctx.arc(tx, ty, R, 0, Math.PI * 2); ctx.clip(); ctx.globalCompositeOperation = "lighter";
+      const gsw = ctx.createLinearGradient(tx + Math.cos(a - 0.55) * R, ty + Math.sin(a - 0.55) * R, tx + Math.cos(a) * R, ty + Math.sin(a) * R);
+      gsw.addColorStop(0, "rgba(46,230,255,0)"); gsw.addColorStop(1, "rgba(46,230,255,0.06)");
+      ctx.fillStyle = gsw; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.arc(tx, ty, R, a - 0.55, a); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(140,246,255,0.16)"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx + Math.cos(a) * R, ty + Math.sin(a) * R); ctx.stroke(); ctx.restore(); }
     const { R } = cam;
     for (const col of armies) {                                                   // your troop columns
       if (col.units.every(u => u.hp <= 0)) continue;
