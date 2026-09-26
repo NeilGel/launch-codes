@@ -4874,7 +4874,9 @@
         for (let q = 0; q < cars; q++) { const loco = q === 0;
           cuboid(g, s.gx + q * cw + 0.05, s.gy + 0.06, cw - 0.12, s.d - 0.12, s.h * (loco ? 1.12 : 1), loco ? shade(col, 1.16) : col, { win: "#ffe08a", roof: loco ? shade(col, 0.68) : null });
           g.fillStyle = "#20251c"; for (const wx of [s.gx + q * cw + 0.16, s.gx + q * cw + cw - 0.2]) { const wp = isoPt(wx, s.gy + s.d * 0.5, 0.05); g.beginPath(); g.ellipse(wp[0], wp[1], 3 * fcam.s, 2.1 * fcam.s, 0, 0, Math.PI * 2); g.fill(); } }
-        const pb = isoPt(s.gx + 0.32, s.gy + s.d / 2, s.h * 1.12), pt = isoPt(s.gx + 0.32, s.gy + s.d / 2, s.h * 1.12 + 0.5); g.strokeStyle = OUT; g.lineWidth = lw2(); g.beginPath(); g.moveTo(pb[0], pb[1]); g.lineTo(pt[0], pt[1]); g.stroke(); } break;
+        const pb = isoPt(s.gx + 0.32, s.gy + s.d / 2, s.h * 1.12), pt = isoPt(s.gx + 0.32, s.gy + s.d / 2, s.h * 1.12 + 0.5); g.strokeStyle = OUT; g.lineWidth = lw2(); g.beginPath(); g.moveTo(pb[0], pb[1]); g.lineTo(pt[0], pt[1]); g.stroke();
+        if ((now % 2100) < 55) { g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(200,230,255,0.95)"; g.beginPath(); g.arc(pt[0], pt[1], 2.6 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore(); }   // a spark off the pantograph
+        if (facNight) { const hl = isoPt(s.gx, s.gy + s.d / 2, s.h * 0.55); g.save(); g.globalCompositeOperation = "lighter"; const gr = g.createRadialGradient(hl[0], hl[1], 0, hl[0], hl[1], 8 * fcam.s); gr.addColorStop(0, "rgba(255,246,210,0.95)"); gr.addColorStop(1, "rgba(255,246,210,0)"); g.fillStyle = gr; g.beginPath(); g.arc(hl[0], hl[1], 8 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore(); } } break;   // headlamp glow after dark
       case "runway": { const t = [isoPt(s.gx, s.gy, 0), isoPt(s.gx + s.w, s.gy, 0), isoPt(s.gx + s.w, s.gy + s.d, 0), isoPt(s.gx, s.gy + s.d, 0)]; poly(g, t, col, OUT, lw2());
         g.save(); g.beginPath(); g.moveTo(t[0][0], t[0][1]); for (const p of t) g.lineTo(p[0], p[1]); g.closePath(); g.clip();
         g.strokeStyle = "#eef2f6"; g.lineWidth = 2 * fcam.s;
