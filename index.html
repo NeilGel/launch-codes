@@ -4370,6 +4370,7 @@
     // the nearest of your guns swings round and fires the shell
     let best = F.scene.attackers[0], bd = 1e9;
     for (const a of F.scene.attackers) { const t = attackerTurret(a), dd = Math.hypot(t[0] - x, t[1] - y); if (dd < bd) { bd = dd; best = a; } }
+    const tc = targetScreen(s); F.fx.push({ kind: "reticle", x: tc[0], y: tc[1], R: 20 * fcam.s, t0: performance.now(), dur: 480 });   // lock onto the target
     attackerFire(F, best, s);
   }
   function hitStruct(F, s) {
@@ -4988,6 +4989,11 @@
       else if (p.kind === "flash") { g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = `rgba(255,255,235,${(1 - t) * 0.95})`; g.beginPath(); g.arc(p.x, p.y, p.R * (0.5 + t), 0, Math.PI * 2); g.fill(); g.restore(); }
       else if (p.kind === "spark") { const x = p.x + p.vx * t * 0.5, y = p.y + p.vy * t * 0.5 + 150 * t * t * fcam.s; g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = p.col; g.beginPath(); g.arc(x, y, (3 * (1 - t) + 1) * fcam.s, 0, Math.PI * 2); g.fill(); g.restore(); }
       else if (p.kind === "smoke") { const x = p.x + p.vx * t, y = p.y + p.vy * t, sh = p.shade || 90; g.fillStyle = `rgba(${sh},${sh},${sh + 6},${(1 - t) * 0.55})`; g.beginPath(); g.arc(x, y, p.s * (0.6 + t * 1.1), 0, Math.PI * 2); g.fill(); }
+      else if (p.kind === "reticle") { const r = p.R * (1.7 - t * 1.05), a = t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88;   // a target lock snapping onto the building
+        const draw = () => { g.beginPath(); g.arc(p.x, p.y, r, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.arc(p.x, p.y, r * 0.62, 0, Math.PI * 2); g.stroke(); for (let q = 0; q < 4; q++) { const an = q * Math.PI / 2; g.beginPath(); g.moveTo(p.x + Math.cos(an) * r * 0.5, p.y + Math.sin(an) * r * 0.5); g.lineTo(p.x + Math.cos(an) * r * 1.4, p.y + Math.sin(an) * r * 1.4); g.stroke(); } };
+        g.save(); g.strokeStyle = `rgba(30,6,6,${a * 0.55})`; g.lineWidth = 4.4 * fcam.s; draw();   // dark halo for contrast on light walls
+        g.strokeStyle = `rgba(255,40,40,${a})`; g.lineWidth = 2.4 * fcam.s; draw();
+        g.fillStyle = `rgba(255,40,40,${a})`; g.beginPath(); g.arc(p.x, p.y, 1.8 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore(); }
       else if (p.kind === "glass") { const x = p.x + p.vx * t, y = p.y + p.vy * t + 180 * t * t, s2 = p.s * fcam.s;
         g.save(); g.translate(x, y); g.rotate(p.rot + p.vr * t); g.globalAlpha = Math.max(0, 1 - t); g.fillStyle = "rgba(206,232,246,0.92)"; g.strokeStyle = "rgba(120,164,196,0.9)"; g.lineWidth = 0.6;
         g.beginPath(); g.moveTo(0, -s2); g.lineTo(s2 * 0.7, s2 * 0.5); g.lineTo(-s2 * 0.6, s2 * 0.4); g.closePath(); g.fill(); g.stroke(); g.restore(); }
