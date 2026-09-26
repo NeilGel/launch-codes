@@ -4629,7 +4629,8 @@
     const sky = g.createLinearGradient(0, 0, 0, horizon + 60);
     sky.addColorStop(0, mood.sky[0]); sky.addColorStop(1, mood.sky[1]);
     g.fillStyle = sky; g.fillRect(0, 0, fw2, horizon + 60);
-    if (mood.night) for (let k = 0; k < 55; k++) { const stx = (k * 97.3) % fw2, sty = (k * 53.7) % (horizon + 30), tw2 = (Math.sin(now / 420 + k * 2.1) + 1) / 2; g.fillStyle = `rgba(255,255,255,${0.28 + tw2 * 0.5})`; g.fillRect(stx, sty, 1.6, 1.6); }   // stars
+    if (mood.night) { for (let k = 0; k < 55; k++) { const stx = (k * 97.3) % fw2, sty = (k * 53.7) % (horizon + 30), tw2 = (Math.sin(now / 420 + k * 2.1) + 1) / 2; g.fillStyle = `rgba(255,255,255,${0.28 + tw2 * 0.5})`; g.fillRect(stx, sty, 1.6, 1.6); }   // stars
+      const ss = (now % 7000) / 7000; if (ss < 0.13) { const p = ss / 0.13, sx = fw2 * 0.22 + p * fw2 * 0.5, sy = horizon * 0.18 + p * horizon * 0.5; g.save(); g.globalCompositeOperation = "lighter"; const sg2 = g.createLinearGradient(sx, sy, sx - 34, sy - 13); sg2.addColorStop(0, `rgba(255,255,255,${1 - p})`); sg2.addColorStop(1, "rgba(255,255,255,0)"); g.strokeStyle = sg2; g.lineWidth = 2; g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx - 34, sy - 13); g.stroke(); g.restore(); } }   // a shooting star
     const sunX = fw2 * mood.sunX, sunY = horizon * mood.sunY;                     // the sun (or moon), placed and coloured by the mood
     { const dx = fw2 * 0.5 - sunX, dy = fh2 * 0.55 - sunY, m = Math.hypot(dx, dy) || 1; facSunVec = [dx / m, dy / m]; facSunLen = (mood.night || mood.rain ? 4 : mood.tint ? 15 : 9) * fcam.s; }   // shadows fall away from the sun, long at golden hour
     facNight = !!mood.night;
