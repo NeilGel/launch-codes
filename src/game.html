@@ -4324,6 +4324,15 @@
     g.save(); g.globalAlpha = 0.15; g.fillStyle = "#07121d";
     g.beginPath(); g.ellipse(c[0], c[1] + 3, rw, rh, 0, 0, Math.PI * 2); g.fill(); g.restore();
   }
+  let facSunVec = [-0.5, 0.34], facSunLen = 9;                 // screen-space shadow direction and length, set per frame from the sun
+  function castShadow(g, gx, gy, w, d, h) {                    // a real cast shadow sheared away from the sun, scaled by height
+    const off = Math.min(h || 1, 7) * facSunLen, base = [[gx, gy], [gx + w, gy], [gx + w, gy + d], [gx, gy + d]].map(([x, y]) => isoPt(x, y, 0)), sh = base.map(p => [p[0] + facSunVec[0] * off, p[1] + facSunVec[1] * off]);
+    g.beginPath();
+    g.moveTo(base[0][0], base[0][1]); for (const p of base) g.lineTo(p[0], p[1]); g.closePath();
+    for (let i = 0; i < 4; i++) { const a = base[i], b = base[(i + 1) % 4], c = sh[(i + 1) % 4], d2 = sh[i]; g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d2[0], d2[1]); g.closePath(); }
+    g.moveTo(sh[0][0], sh[0][1]); for (const p of sh) g.lineTo(p[0], p[1]); g.closePath();
+    g.fillStyle = "rgba(10,20,32,0.15)"; g.fill();             // one fill, so overlaps don't compound
+  }
   function footing(g, gx, gy, w, d, col) {                   // a little plinth so a building sits on the ground, not floats
     cuboid(g, gx - 0.08, gy - 0.08, w + 0.16, d + 0.16, 0.12, shade(col, 0.55));
   }
@@ -4539,6 +4548,7 @@
     g.fillStyle = sky; g.fillRect(0, 0, fw2, horizon + 60);
     if (mood.night) for (let k = 0; k < 55; k++) { const stx = (k * 97.3) % fw2, sty = (k * 53.7) % (horizon + 30), tw2 = (Math.sin(now / 420 + k * 2.1) + 1) / 2; g.fillStyle = `rgba(255,255,255,${0.28 + tw2 * 0.5})`; g.fillRect(stx, sty, 1.6, 1.6); }   // stars
     const sunX = fw2 * mood.sunX, sunY = horizon * mood.sunY;                     // the sun (or moon), placed and coloured by the mood
+    { const dx = fw2 * 0.5 - sunX, dy = fh2 * 0.55 - sunY, m = Math.hypot(dx, dy) || 1; facSunVec = [dx / m, dy / m]; facSunLen = (mood.night || mood.rain ? 4 : mood.tint ? 15 : 9) * fcam.s; }   // shadows fall away from the sun, long at golden hour
     g.save(); g.globalCompositeOperation = "lighter";
     const sg = g.createRadialGradient(sunX, sunY, 4, sunX, sunY, 130); sg.addColorStop(0, `rgba(${mood.sun},${mood.sunA})`); sg.addColorStop(1, `rgba(${mood.sun},0)`);
     g.fillStyle = sg; g.beginPath(); g.arc(sunX, sunY, 130, 0, Math.PI * 2); g.fill();
@@ -4639,7 +4649,7 @@
     if (s.dead) return rubblePile(g, s.gx, s.gy, s.w || 1, s.d || 1, now, s.collapsing);
     if (s.collapsing) return collapseDraw(g, s, now);
     const flat = s.shape === "runway";
-    if (!flat) softShadow(g, s.gx, s.gy, s.w || 1, s.d || 1);
+    if (!flat) { if ((s.h || 1) > 0.7 && !["dish", "gantry", "pylon", "platform", "pole", "span", "deck", "brpylon", "crane"].includes(s.shape)) castShadow(g, s.gx, s.gy, s.w || 1, s.d || 1, s.h || 1); else softShadow(g, s.gx, s.gy, s.w || 1, s.d || 1); }
     if (["tower", "box", "shed", "dome", "hangar"].includes(s.shape)) footing(g, s.gx, s.gy, s.w, s.d, s.color);
     const wob = s.hitT && now - s.hitT < 160 ? Math.sin((now - s.hitT) / 20) * 0.06 * (1 - (now - s.hitT) / 160) : 0;
     const col = s.hitT && now - s.hitT < 120 ? "#ffffff" : s.color;
