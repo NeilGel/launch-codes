@@ -4678,6 +4678,8 @@
     const sg = g.createRadialGradient(sunX, sunY, 4, sunX, sunY, 130); sg.addColorStop(0, `rgba(${mood.sun},${mood.sunA})`); sg.addColorStop(1, `rgba(${mood.sun},0)`);
     g.fillStyle = sg; g.beginPath(); g.arc(sunX, sunY, 130, 0, Math.PI * 2); g.fill();
     g.fillStyle = `rgba(${mood.sun},${Math.min(1, mood.sunA + 0.1)})`; g.beginPath(); g.arc(sunX, sunY, 20, 0, Math.PI * 2); g.fill(); g.restore();
+    if (mood.tint && !mood.rain) { g.save(); g.globalCompositeOperation = "lighter"; g.translate(sunX, sunY);   // crepuscular rays fanning from the low golden sun
+      for (let k = 0; k < 9; k++) { const a = Math.PI * (0.44 + k * 0.075) + Math.sin(now / 3400 + k) * 0.02, L = 380; g.fillStyle = `rgba(${mood.sun},0.045)`; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * L, Math.sin(a) * L); g.lineTo(Math.cos(a + 0.05) * L, Math.sin(a + 0.05) * L); g.closePath(); g.fill(); } g.restore(); }
     g.fillStyle = mood.cloud;
     for (let k = 0; k < 4; k++) { const cx = ((k * 0.31 + 0.1) * fw2 + now / 90 % (fw2 + 160)) % (fw2 + 160) - 80, cy = horizon * (0.22 + k * 0.17); g.beginPath(); g.ellipse(cx, cy, 38, 15, 0, 0, Math.PI * 2); g.ellipse(cx + 28, cy + 5, 26, 11, 0, 0, Math.PI * 2); g.ellipse(cx - 26, cy + 6, 22, 10, 0, 0, Math.PI * 2); g.fill(); }
     g.strokeStyle = "rgba(38,58,78,0.5)"; g.lineWidth = 1.4;                        // a few birds drifting past
