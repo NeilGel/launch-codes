@@ -4782,7 +4782,8 @@
     const h = (s.h || 2) * (1 + wob);
     const broken = s.hp < s.max ? (((s.gx * 13 + s.gy * 7) | 0) | 1) : 0;    // once hit, its glass is blown out
     switch (s.shape) {
-      case "tower": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, broken, parapet: true, base: true }); if (s.opts.roof) cuboid(g, s.gx + 0.1, s.gy + 0.1, s.w - 0.2, s.d - 0.2, 0.2, s.opts.roof, { z: h }); break;
+      case "tower": { cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, broken, parapet: true, base: true }); if (s.opts.roof) cuboid(g, s.gx + 0.1, s.gy + 0.1, s.w - 0.2, s.d - 0.2, 0.2, s.opts.roof, { z: h });
+        const mb = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h), mt = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h + 0.7); g.strokeStyle = "#6b7681"; g.lineWidth = lw2() * 1.1; g.beginPath(); g.moveTo(mb[0], mb[1]); g.lineTo(mt[0], mt[1]); g.stroke(); beacon(g, mt[0], mt[1], now, (s.gx * 5) | 0); } break;   // antenna mast with a red obstruction beacon
       case "box": case "shed": case "dock": case "launcher": cuboid(g, s.gx, s.gy, s.w, s.d, h, col, { win: s.opts.win, broken, roof: s.opts.roof && shade(s.opts.roof, 1), door: s.shape !== "dock" && h > 1.1, parapet: s.shape === "box" && !s.opts.roof, base: s.shape === "box" && h > 1.4 }); if (s.shape === "launcher") { const base = isoPt(s.gx + s.w / 2, s.gy + s.d / 2, h);   // a rack of erect missiles, warheads up
         for (let q = 0; q < 3; q++) { const x0 = base[0] + (q - 1) * 8 * fcam.s, y0 = base[1] - 2 * fcam.s, x1 = x0 + 5 * fcam.s, y1 = y0 - 27 * fcam.s;
           g.strokeStyle = "#e9edf1"; g.lineWidth = lw2() * 2.4; g.lineCap = "round"; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); g.lineCap = "butt";
@@ -4863,6 +4864,11 @@
         for (const ey of [s.gy + 0.09, s.gy + s.d - 0.09]) { const a = isoPt(s.gx, ey, 0.01), b = isoPt(s.gx + s.w, ey, 0.01); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }   // edge lines
         g.setLineDash([12 * fcam.s, 10 * fcam.s]); const m0 = isoPt(s.gx + 0.6, s.gy + s.d / 2, 0.01), m1 = isoPt(s.gx + s.w - 0.6, s.gy + s.d / 2, 0.01); g.beginPath(); g.moveTo(m0[0], m0[1]); g.lineTo(m1[0], m1[1]); g.stroke(); g.setLineDash([]);   // centreline
         g.lineWidth = 3.4 * fcam.s; for (const ex of [s.gx + 0.32, s.gx + s.w - 0.32]) for (let b = 0; b < 6; b++) { const fy = s.gy + 0.17 + b * (s.d - 0.34) / 5, a = isoPt(ex - 0.22, fy, 0.01), c2 = isoPt(ex + 0.22, fy, 0.01); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(c2[0], c2[1]); g.stroke(); }   // threshold piano keys
+        if (facNight) { g.globalCompositeOperation = "lighter"; const glow = (px, py, col, core, rad) => { const gr = g.createRadialGradient(px, py, 0, px, py, rad); gr.addColorStop(0, col); gr.addColorStop(1, col.replace(/[\d.]+\)$/, "0)")); g.fillStyle = gr; g.beginPath(); g.arc(px, py, rad, 0, Math.PI * 2); g.fill(); g.fillStyle = core; g.beginPath(); g.arc(px, py, 1.5 * fcam.s, 0, Math.PI * 2); g.fill(); };
+          for (let u = 0; u <= 1.001; u += 1 / 12) { const lx = s.gx + 0.14 + u * (s.w - 0.28); for (const ey of [s.gy + 0.07, s.gy + s.d - 0.07]) { const p = isoPt(lx, ey, 0.02); glow(p[0], p[1], "rgba(255,244,205,0.85)", "#fffdf2", 5 * fcam.s); } }   // white edge lights
+          for (let u = 0; u <= 1.001; u += 1 / 9) { const p = isoPt(s.gx + 0.6 + u * (s.w - 1.2), s.gy + s.d / 2, 0.02); glow(p[0], p[1], "rgba(255,230,150,0.6)", "#fff3c8", 3.6 * fcam.s); }   // centreline lights
+          for (const ex of [s.gx + 0.1, s.gx + s.w - 0.1]) for (let b = 0; b < 6; b++) { const p = isoPt(ex, s.gy + 0.17 + b * (s.d - 0.34) / 5, 0.02); glow(p[0], p[1], "rgba(90,255,150,0.85)", "#d7ffe6", 4.4 * fcam.s); }   // green threshold lights
+          g.globalCompositeOperation = "source-over"; }
         g.restore(); } break;
       case "pole": { const a = isoPt(s.gx, s.gy, 0), b = isoPt(s.gx, s.gy, s.h); g.strokeStyle = col; g.lineWidth = lw2() * 1.4; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); if (s.opts.flag) { const w = 24 * fcam.s, hh = 13 * fcam.s, ph = now / 160, top = [], bot = [];   // a flag fluttering in the breeze
         for (let u = 0; u <= 1.001; u += 0.2) { const dx = b[0] + u * w, wob = Math.sin(ph + u * 5) * 2.6 * u * fcam.s; top.push([dx, b[1] + wob]); bot.push([dx, b[1] + hh + wob]); }
