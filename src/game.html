@@ -4807,7 +4807,7 @@
     }
     drawFacFx(g, F, now);
     g.restore();
-    if (facNight && ["base", "hq", "silo", "sam", "air"].includes(sc.type)) {      // searchlights sweeping the war-time sky
+    if (facNight && ["base", "hq", "silo", "sam", "air", "naval", "space"].includes(sc.type)) {   // searchlights sweeping the war-time sky
       g.save(); g.globalCompositeOperation = "lighter";
       for (let i = 0; i < 2; i++) { const ox = fw2 * (0.34 + i * 0.32), oy = fh2 * 0.46, ang = -Math.PI / 2 + Math.sin(now / 2600 + i * 2.3) * 0.6, L = fh2 * 0.62, tx = ox + Math.cos(ang) * L, ty = oy + Math.sin(ang) * L, wd = 24, perp = ang + Math.PI / 2;
         const gr = g.createLinearGradient(ox, oy, tx, ty); gr.addColorStop(0, "rgba(198,222,255,0.2)"); gr.addColorStop(1, "rgba(198,222,255,0)"); g.fillStyle = gr;
