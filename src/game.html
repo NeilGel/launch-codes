@@ -2506,7 +2506,7 @@
         if (sat) { g.strokeStyle = `rgba(255,214,120,${0.55 * fade})`; g.lineWidth = 1.6 * lw; g.stroke(); continue; }
         g.strokeStyle = "#7a848b"; g.lineWidth = 5 * lw; g.stroke();
         g.strokeStyle = "#2a3035"; g.lineWidth = 4.2 * lw; g.stroke();
-        g.strokeStyle = "rgba(232,210,122,0.85)"; g.lineWidth = 0.45 * lw; g.setLineDash([2.4 * lw, 2 * lw]); g.stroke(); g.setLineDash([]);
+        g.strokeStyle = "rgba(232,210,122,0.85)"; g.lineWidth = 0.45 * lw; g.setLineDash([2.4 * lw, 2 * lw]); g.lineDashOffset = -(now / 90) % (4.4 * lw); g.stroke(); g.setLineDash([]); g.lineDashOffset = 0;
       }
       // Railway: rails and sleepers
       if (net.rail.length > 1) {
@@ -2536,7 +2536,7 @@
           g.strokeStyle = live ? "rgba(255,224,138,0.55)" : "rgba(110,120,128,0.4)"; g.lineWidth = 0.5 * lw; g.stroke();
           if (live) {
             g.strokeStyle = "rgba(255,246,190,0.95)"; g.lineWidth = 0.9 * lw;
-            g.setLineDash([1.6 * lw, 8 * lw]); g.stroke(); g.setLineDash([]);
+            g.setLineDash([1.6 * lw, 8 * lw]); g.lineDashOffset = -(now / 55) % (9.6 * lw); g.stroke(); g.setLineDash([]); g.lineDashOffset = 0;   // energy streams along the wire
           }
         }
         g.strokeStyle = live ? "#aab4bb" : "#4a545b"; g.lineWidth = 0.45 * lw;
