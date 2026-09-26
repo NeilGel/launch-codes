@@ -3980,7 +3980,7 @@
     }
   }
   // ---- A parked jet: pointed fuselage, swept delta wings, a glass canopy, tail fin and engine glow ----
-  function drawJet(g, gx, gy, w, d, col) {
+  function drawJet(g, gx, gy, w, d, col, now) {
     const cx = gx + w / 2, cy = gy + d / 2, z = 0.42;
     footing(g, gx + w * 0.2, cy - 0.12, w * 0.6, 0.24, "#7a828c");                   // landing gear shadow/plinth
     poly(g, [isoPt(gx - 0.05, cy + 0.05, z), isoPt(cx - 0.12, cy + 0.05, z), isoPt(cx - 0.12, cy + 0.34, z)], shade(col, 0.88), OUT, lw2());   // left swept wing
@@ -3988,7 +3988,12 @@
     poly(g, [isoPt(cx, gy - 0.12, z), isoPt(cx + 0.13, cy, z), isoPt(cx + 0.1, gy + d + 0.02, z), isoPt(cx - 0.1, gy + d + 0.02, z), isoPt(cx - 0.13, cy, z)], shade(col, 1.08), OUT, lw2());   // fuselage
     poly(g, [isoPt(cx - 0.1, cy + 0.22, z), isoPt(cx + 0.1, cy + 0.22, z), isoPt(cx + 0.07, cy + 0.5, z), isoPt(cx - 0.07, cy + 0.5, z)], shade(col, 0.82), OUT, lw2());   // tailplane
     const cp = isoPt(cx, cy - 0.14, z + 0.05); g.fillStyle = "#8fd0ff"; g.strokeStyle = OUT; g.lineWidth = 1; g.beginPath(); g.ellipse(cp[0], cp[1], 5 * fcam.s, 3.2 * fcam.s, 0, 0, Math.PI * 2); g.fill(); g.stroke();   // canopy
-    const e = isoPt(cx, gy + d + 0.02, z); g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(130,195,255,0.55)"; g.beginPath(); g.arc(e[0], e[1], 3.4 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();   // exhaust glow
+    const e = isoPt(cx, gy + d + 0.02, z); g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(130,195,255,0.55)"; g.beginPath(); g.arc(e[0], e[1], 3.4 * fcam.s, 0, Math.PI * 2); g.fill();   // exhaust glow
+    const na = facNight ? 0.95 : 0.5, lw = isoPt(gx - 0.05, cy + 0.05, z), rw = isoPt(gx + w + 0.05, cy + 0.05, z), tl = isoPt(cx, cy + 0.5, z);   // wingtip and tail nav lights
+    g.fillStyle = `rgba(255,60,60,${na})`; g.beginPath(); g.arc(lw[0], lw[1], 1.5 * fcam.s, 0, Math.PI * 2); g.fill();
+    g.fillStyle = `rgba(60,255,120,${na})`; g.beginPath(); g.arc(rw[0], rw[1], 1.5 * fcam.s, 0, Math.PI * 2); g.fill();
+    if (now && Math.floor(now / 550) % 2 === 0) { g.fillStyle = "rgba(255,255,255,0.95)"; g.beginPath(); g.arc(tl[0], tl[1], 1.7 * fcam.s, 0, Math.PI * 2); g.fill(); }   // white tail strobe
+    g.restore();
   }
   // ---- A grand capitol: broad steps, a columned portico under a pediment, and a domed rotunda with a spire ----
   function drawCapitol(g, s, now) {
@@ -4829,7 +4834,7 @@
         cuboid(g, s.gx + w * 0.6, s.gy + 0.04, w * 0.4, d - 0.08, h * 0.85, shade(col, 1.12), { z: 0, win: "#bfe6ff" });   // cab
         g.fillStyle = "#22271f"; g.strokeStyle = OUT; g.lineWidth = 1;
         for (const wx of [s.gx + 0.18, s.gx + w * 0.55, s.gx + w - 0.2]) for (const wy of [s.gy + 0.02, s.gy + d - 0.02]) { const wp = isoPt(wx, wy, 0.06); g.beginPath(); g.ellipse(wp[0], wp[1], 3.6 * fcam.s, 2.6 * fcam.s, 0, 0, Math.PI * 2); g.fill(); g.stroke(); } } break;
-      case "plane": drawJet(g, s.gx, s.gy, s.w, s.d, col); break;
+      case "plane": drawJet(g, s.gx, s.gy, s.w, s.d, col, now); break;
       case "ship": { const hw = s.w, hd = s.d, hullH = h * 0.5;
         waterlineFoam(g, s.gx + hw / 2, s.gy + hd / 2, hw, hd, now);                                // the sea lapping at the hull
         g.save(); g.translate(0, Math.sin(now / 820 + s.gy) * 1.1 * fcam.s);                        // ride the swell
