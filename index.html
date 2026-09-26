@@ -4536,6 +4536,9 @@
     const ang = a.angle != null ? a.angle : Math.atan2(ctr[1] - tur[1], ctr[0] - tur[0]);
     const arty = a.unit === "arty", mlrs = a.unit === "mlrs";
     softShadow(g, a.gx - 0.05, a.gy, arty || mlrs ? 1.05 : 0.9, 0.62);
+    if (a.grab) { const gc = isoPt(a.gx + 0.45, a.gy + 0.25, 0.02), pr = (0.9 + Math.sin(now / 160) * 0.12); g.save(); g.globalCompositeOperation = "lighter";   // picked-up: a pulsing selection ring
+      g.strokeStyle = "rgba(120,230,255,0.85)"; g.lineWidth = 2.4 * fcam.s; g.beginPath(); g.ellipse(gc[0], gc[1], 34 * fcam.s * pr, 17 * fcam.s * pr, 0, 0, Math.PI * 2); g.stroke();
+      const gg = g.createRadialGradient(gc[0], gc[1], 0, gc[0], gc[1], 36 * fcam.s); gg.addColorStop(0, "rgba(120,230,255,0.15)"); gg.addColorStop(1, "rgba(120,230,255,0)"); g.fillStyle = gg; g.beginPath(); g.ellipse(gc[0], gc[1], 36 * fcam.s, 18 * fcam.s, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
     const bodyH = arty || mlrs ? 0.34 : 0.3, hullW = arty || mlrs ? 1.0 : 0.86;
     cuboid(g, a.gx, a.gy - 0.04, hullW, 0.16, bodyH * 0.66, "#1c211a");                   // caterpillar tracks
     cuboid(g, a.gx, a.gy + 0.42, hullW, 0.16, bodyH * 0.66, "#1c211a");
@@ -5021,7 +5024,7 @@
     if (!ui.facility || (e.pointerType === "mouse" && e.button !== 0)) return;
     facCanvas.setPointerCapture(e.pointerId);
     const [x, y] = facLocal(e), a = attackerAt(x, y);
-    if (a) { const gp = isoInv(x, y); fdrag = { id: e.pointerId, a, ox: a.gx - gp[0], oy: a.gy - gp[1] }; }
+    if (a) { const gp = isoInv(x, y); fdrag = { id: e.pointerId, a, ox: a.gx - gp[0], oy: a.gy - gp[1] }; a.grab = true; }
     else fdrag = { id: e.pointerId, tap: true, sx: x, sy: y, moved: 0 };
   });
   facCanvas.addEventListener("pointermove", e => {
@@ -5030,7 +5033,7 @@
     if (fdrag.a) { const gp = isoInv(x, y); fdrag.a.gx = clamp(gp[0] + fdrag.ox, -7, 7); fdrag.a.gy = clamp(gp[1] + fdrag.oy, 0.6, 7.5); }
     else fdrag.moved = Math.max(fdrag.moved, Math.hypot(x - fdrag.sx, y - fdrag.sy));
   });
-  const facEnd = e => { if (!fdrag || fdrag.id !== e.pointerId) return; if (fdrag.tap && fdrag.moved < 10) facilityTap(fdrag.sx, fdrag.sy); fdrag = null; };
+  const facEnd = e => { if (!fdrag || fdrag.id !== e.pointerId) return; if (fdrag.a) fdrag.a.grab = false; if (fdrag.tap && fdrag.moved < 10) facilityTap(fdrag.sx, fdrag.sy); fdrag = null; };
   facCanvas.addEventListener("pointerup", facEnd);
   facCanvas.addEventListener("pointercancel", facEnd);
   facCanvas.addEventListener("contextmenu", e => e.preventDefault());
