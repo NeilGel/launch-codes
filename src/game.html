@@ -4702,7 +4702,10 @@
         g.strokeStyle = `rgba(255,255,255,${0.05 + dep * 0.13})`; g.lineWidth = 1 + dep * 1.4;
         g.beginPath(); for (let xx = 0; xx <= fw2; xx += 22) { const wy = yy + Math.sin(now / 620 + xx * 0.03 + yy * 0.18) * (1 + dep * 3); xx ? g.lineTo(xx, wy) : g.moveTo(xx, wy); } g.stroke(); }
       g.save(); g.globalCompositeOperation = "lighter";
-      for (let k = 0; k < 34; k++) { const sx = (k * 137.5) % fw2, sy = horizon + ((k * 71) % (fh2 - horizon)), tw2 = (Math.sin(now / 320 + k * 1.7) + 1) / 2; g.fillStyle = `rgba(255,250,225,${tw2 * 0.5})`; g.fillRect(sx, sy, 3 + tw2 * 4, 1.4); }
+      const glint = mood.night ? "220,232,255" : "255,250,225";
+      for (let k = 0; k < 34; k++) { const sx = (k * 137.5) % fw2, sy = horizon + ((k * 71) % (fh2 - horizon)), tw2 = (Math.sin(now / 320 + k * 1.7) + 1) / 2; g.fillStyle = `rgba(${glint},${tw2 * 0.5})`; g.fillRect(sx, sy, 3 + tw2 * 4, 1.4); }
+      if (mood.night) { for (let yy = horizon + 2; yy < fh2; yy += 4) { const dep = (yy - horizon) / (fh2 - horizon), half = 8 + dep * 62;   // the moon lays a shimmering silver path across the water
+        for (let xx = sunX - half; xx < sunX + half; xx += 9) { const wd = 3 + Math.sin(now / 200 + xx * 0.2 + yy) * 3, edge = 1 - Math.abs(xx - sunX) / half; if (wd < 1 || edge < 0) continue; g.fillStyle = `rgba(214,228,255,${(0.06 + ((Math.sin(now / 260 + yy * 0.4) + 1) / 2) * 0.14) * edge})`; g.fillRect(xx, yy, wd, 1.7); } } }
       g.restore();
     }
     else {
