@@ -4886,7 +4886,10 @@
         g.fillStyle = "#e0b83a"; g.beginPath(); g.arc(0, 0, R * 0.56, 0, Math.PI * 2); g.fill();                                                       // yellow hazard hatch
         g.strokeStyle = "#20242a"; g.lineWidth = lw2(); g.beginPath(); g.arc(0, 0, R * 0.56, 0, Math.PI * 2); g.moveTo(-R * 0.56, 0); g.lineTo(R * 0.56, 0); g.moveTo(0, -R * 0.56); g.lineTo(0, R * 0.56); g.stroke();
         g.restore(); } break;
-      case "rocket": { const cyc = (now % 24000) / 24000, firing = cyc > 0.62, lift = cyc < 0.7 ? 0 : Math.pow((cyc - 0.7) / 0.3, 2.2) * 16; drawRocket(g, s.gx, s.gy, s.w, h, col, now, lift, firing); } break;
+      case "rocket": { const cyc = (now % 24000) / 24000, firing = cyc > 0.62, lift = cyc < 0.7 ? 0 : Math.pow((cyc - 0.7) / 0.3, 2.2) * 16;
+        if (firing && cyc < 0.74) { const ig = 1 - (cyc - 0.62) / 0.12, pad = isoPt(s.gx, s.gy, 0.02); g.save(); g.globalCompositeOperation = "lighter";   // ignition: a blinding flash floods the pad
+          const fg = g.createRadialGradient(pad[0], pad[1], 0, pad[0], pad[1], 80 * fcam.s * (0.5 + ig)); fg.addColorStop(0, `rgba(255,250,225,${ig * 0.9})`); fg.addColorStop(0.5, `rgba(255,190,90,${ig * 0.5})`); fg.addColorStop(1, "rgba(255,150,60,0)"); g.fillStyle = fg; g.beginPath(); g.arc(pad[0], pad[1], 80 * fcam.s * (0.5 + ig), 0, Math.PI * 2); g.fill(); g.restore(); if (ig > 0.6 && ui.facility) ui.facility.flash = now; }
+        drawRocket(g, s.gx, s.gy, s.w, h, col, now, lift, firing); } break;
       case "cyl": cylinder(g, s.gx, s.gy, s.w, h, col); break;
       case "chimney": { cylinder(g, s.gx, s.gy, s.w, h, col);
         const rim = isoPt(s.gx, s.gy, h); g.strokeStyle = shade(col, 0.6); g.lineWidth = lw2() * 1.6; g.beginPath(); for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI * 2, p = isoPt(s.gx + Math.cos(a) * s.w, s.gy + Math.sin(a) * s.w, h - 0.18); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.stroke();   // a warning band near the top
