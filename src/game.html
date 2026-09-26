@@ -3877,11 +3877,11 @@
       const s = (3 + (k % 3) * 2) * fcam.s;
       poly(g, [[p[0], p[1] - s], [p[0] + s, p[1]], [p[0], p[1] + s * 0.6], [p[0] - s, p[1]]], k % 2 ? "#8b9098" : "#6f747c", OUT, lw2());
     }
-    if (now && since && now - since < 4200) {                 // lingering embers and smoke just after it fell
-      const t = (now - since) / 4200, c = isoPt(gx + w / 2, gy + d / 2, 0.08);
-      if (Math.random() < (1 - t) * 0.6) facFlame(g, c[0], c[1], 0.55 * (1 - t), now, gx * 3);
-      smoke(g, gx + w / 2, gy + d / 2, 0.15, now, (gx * 9) | 0);
+    if (now && since && now - since < 5000) {                 // fierce embers and flame for a while just after it fell
+      const t = (now - since) / 5000, c = isoPt(gx + w / 2, gy + d / 2, 0.08);
+      if (Math.random() < (1 - t) * 0.7) facFlame(g, c[0], c[1], 0.6 * (1 - t), now, gx * 3);
     }
+    if (now) smoke(g, gx + w / 2, gy + d / 2, 0.14, now, (gx * 9) | 0);        // a wrecked site keeps smoking
   }
   function lattice(g, gx, gy, w, d, h, color) {                                      // an open gantry / pylon lattice
     const c = [[0, 0], [w, 0], [w, d], [0, d]];
@@ -4233,7 +4233,8 @@
     const c = targetScreen(s);
     s.hp--; s.hitT = performance.now(); s.burning = performance.now();
     if (s.opts && s.opts.win) shatterGlass(F, c[0], c[1], s.hp <= 0 ? 18 : 9);        // its windows blow out
-    if (s.hp <= 0) { s.collapsing = performance.now(); boomFac(F, c[0], c[1], 1); spawnChunks(F, c[0], c[1], s.color, s); F.shake = Math.min(20, F.shake + 13); syncFacDamage(F); }
+    const fuel = ["tank", "silo", "opensilo", "rocket", "cool", "chimney"].includes(s.shape);   // these cook off in a fireball
+    if (s.hp <= 0) { s.collapsing = performance.now(); boomFac(F, c[0], c[1], 1); if (fuel) { boomFac(F, c[0], c[1] - 10 * fcam.s, 1.6); setTimeout(() => { if (ui.facility === F) boomFac(F, c[0], c[1] - 4 * fcam.s, 1.2); }, 150); } spawnChunks(F, c[0], c[1], s.color, s); F.shake = Math.min(24, F.shake + (fuel ? 20 : 13)); syncFacDamage(F); }
     else { boomFac(F, c[0], c[1], 0.4); F.shake = Math.min(14, F.shake + 5); }
     renderFacUi();
   }
