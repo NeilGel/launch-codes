@@ -3995,6 +3995,26 @@
     if (now && Math.floor(now / 550) % 2 === 0) { g.fillStyle = "rgba(255,255,255,0.95)"; g.beginPath(); g.arc(tl[0], tl[1], 1.7 * fcam.s, 0, Math.PI * 2); g.fill(); }   // white tail strobe
     g.restore();
   }
+  // ---- A parked passenger airliner: long fuselage with cabin windows, underwing engines and a tall tail fin ----
+  function drawAirliner(g, gx, gy, w, d, col, now) {
+    const cx = gx + w / 2, z = 0.42, noseY = gy - 0.18, tailY = gy + d + 0.12, cy = gy + d / 2, fL = 0.12;
+    footing(g, gx + w * 0.22, cy - 0.1, w * 0.56, 0.34, "#7a828c");                                // gear shadow
+    poly(g, [isoPt(cx - 0.08, cy - 0.12, z), isoPt(gx - 0.22, cy + 0.55, z), isoPt(gx + 0.06, cy + 0.6, z), isoPt(cx - 0.08, cy + 0.12, z)], shade(col, 0.85), OUT, lw2());   // left wing
+    poly(g, [isoPt(cx + 0.08, cy - 0.12, z), isoPt(gx + w + 0.22, cy + 0.55, z), isoPt(gx + w - 0.06, cy + 0.6, z), isoPt(cx + 0.08, cy + 0.12, z)], shade(col, 1.04), OUT, lw2());   // right wing
+    for (const ex of [-1, 1]) { const e = isoPt(cx + ex * 0.4, cy + 0.34, z - 0.02); g.fillStyle = "#474e57"; g.strokeStyle = OUT; g.lineWidth = 1; g.beginPath(); g.ellipse(e[0], e[1], 3.6 * fcam.s, 6.4 * fcam.s, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.fillStyle = "#1c2228"; g.beginPath(); g.ellipse(e[0], e[1] + 4.6 * fcam.s, 2.6 * fcam.s, 2 * fcam.s, 0, 0, Math.PI * 2); g.fill(); }   // underwing engines
+    poly(g, [isoPt(cx - 0.05, tailY - 0.2, z), isoPt(cx - 0.26, tailY + 0.02, z), isoPt(cx - 0.05, tailY - 0.02, z)], shade(col, 0.8), OUT, lw2());   // tailplane L
+    poly(g, [isoPt(cx + 0.05, tailY - 0.2, z), isoPt(cx + 0.26, tailY + 0.02, z), isoPt(cx + 0.05, tailY - 0.02, z)], shade(col, 0.94), OUT, lw2());   // tailplane R
+    poly(g, [isoPt(cx, noseY, z), isoPt(cx + fL, gy + 0.06, z), isoPt(cx + fL, tailY - 0.22, z), isoPt(cx, tailY, z), isoPt(cx - fL, tailY - 0.22, z), isoPt(cx - fL, gy + 0.06, z)], shade(col, 1.12), OUT, lw2());   // fuselage
+    { const a = isoPt(cx, noseY + 0.05, z + 0.04), b = isoPt(cx, tailY - 0.24, z + 0.04); g.strokeStyle = "rgba(255,255,255,0.5)"; g.lineWidth = 2.2 * fcam.s; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }   // sunlit crown line
+    { const a = isoPt(cx - fL * 0.85, gy + 0.2, z), b = isoPt(cx - fL * 0.85, tailY - 0.3, z); g.strokeStyle = shade(col, 0.7); g.lineWidth = 2.4 * fcam.s; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }   // livery cheatline
+    const cp = isoPt(cx, noseY + 0.14, z + 0.03); g.fillStyle = "#2b3540"; g.beginPath(); g.ellipse(cp[0], cp[1], 3.2 * fcam.s, 2.1 * fcam.s, 0, 0, Math.PI * 2); g.fill();   // cockpit
+    g.fillStyle = facNight ? "#ffe08a" : "#8fd0ff"; for (let u = 0.2; u < 0.9; u += 0.085) { const p = isoPt(cx - fL * 0.5, gy + u * d, z + 0.05); g.fillRect(p[0] - fcam.s, p[1] - fcam.s, 2 * fcam.s, 2 * fcam.s); }   // cabin windows
+    poly(g, [isoPt(cx, tailY - 0.3, z), isoPt(cx, tailY - 0.3, z + 0.55), isoPt(cx, tailY - 0.04, z + 0.24), isoPt(cx, tailY - 0.04, z)], "#c0433f", OUT, lw2());   // vertical tail fin
+    const na = facNight ? 0.95 : 0.5, lw2v = isoPt(gx - 0.22, cy + 0.55, z), rw2 = isoPt(gx + w + 0.22, cy + 0.55, z), tt = isoPt(cx, tailY - 0.04, z + 0.55);   // nav lights
+    g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = `rgba(255,60,60,${na})`; g.beginPath(); g.arc(lw2v[0], lw2v[1], 1.5 * fcam.s, 0, Math.PI * 2); g.fill();
+    g.fillStyle = `rgba(60,255,120,${na})`; g.beginPath(); g.arc(rw2[0], rw2[1], 1.5 * fcam.s, 0, Math.PI * 2); g.fill();
+    if (now && Math.floor(now / 550) % 2 === 0) { g.fillStyle = "rgba(255,255,255,0.95)"; g.beginPath(); g.arc(tt[0], tt[1], 1.7 * fcam.s, 0, Math.PI * 2); g.fill(); } g.restore();
+  }
   // ---- A grand capitol: broad steps, a columned portico under a pediment, and a domed rotunda with a spire ----
   function drawCapitol(g, s, now) {
     const w = s.w, d = s.d, h = s.h, col = s.color, hurt = s.hp < s.max;
@@ -4273,8 +4293,8 @@
       S("pole", 2.4, -0.95, 0.14, 0.14, 1.9, "#c0c4c8"), S("pole", -1.0, 1.05, 0.16, 0.16, 1.8, "#c0c4c8", { signal: true }) ] }),
     airport: (r) => ({ ground: "tarmac", s: [
       S("runway", -3, 0.8, 6, 1.2, 0.1, "#4a4f58"), S("box", -2.2, -1.6, 3.2, 1.4, 1.3, "#c8ccd2", { win: "#bfe6ff", hp: 3 }),
-      S("tower", 1.6, -1.8, 0.7, 0.7, 3.4, "#9aa2aa", { win: "#bfe6ff" }), S("plane", -1.0, -0.2, 1.8, 1.8, 0.5, "#eef2f6", { hp: 2 }),
-      S("plane", 1.2, 0.0, 1.8, 1.8, 0.5, "#eef2f6") ] }),
+      S("tower", 1.6, -1.8, 0.7, 0.7, 3.4, "#9aa2aa", { win: "#bfe6ff" }), S("airliner", -1.1, -0.3, 1.9, 2.0, 0.5, "#eef2f6", { hp: 2 }),
+      S("airliner", 1.3, 0.1, 1.9, 2.0, 0.5, "#eef2f6") ] }),
     bridge:  (r) => ({ ground: "water", s: [
       S("deck", -3.3, -0.9, 6.6, 0.8, 0, "#c2c8cf", { hp: 5 }),
       S("brpylon", -1.85, -0.9, 0.5, 0.8, 3.8, "#d64b63", { hp: 3 }), S("brpylon", 0.85, -0.9, 0.5, 0.8, 3.8, "#d64b63", { hp: 3 }),
@@ -4883,6 +4903,7 @@
         g.fillStyle = "#22271f"; g.strokeStyle = OUT; g.lineWidth = 1;
         for (const wx of [s.gx + 0.18, s.gx + w * 0.55, s.gx + w - 0.2]) for (const wy of [s.gy + 0.02, s.gy + d - 0.02]) { const wp = isoPt(wx, wy, 0.06); g.beginPath(); g.ellipse(wp[0], wp[1], 3.6 * fcam.s, 2.6 * fcam.s, 0, 0, Math.PI * 2); g.fill(); g.stroke(); } } break;
       case "plane": drawJet(g, s.gx, s.gy, s.w, s.d, col, now); break;
+      case "airliner": drawAirliner(g, s.gx, s.gy, s.w, s.d, col, now); break;
       case "ship": { const hw = s.w, hd = s.d, hullH = h * 0.5;
         waterlineFoam(g, s.gx + hw / 2, s.gy + hd / 2, hw, hd, now);                                // the sea lapping at the hull
         g.save(); g.translate(0, Math.sin(now / 820 + s.gy) * 1.1 * fcam.s);                        // ride the swell
