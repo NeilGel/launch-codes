@@ -4785,7 +4785,9 @@
     const vg = g.createRadialGradient(fw2 / 2, fh2 * 0.56, fh2 * 0.32, fw2 / 2, fh2 * 0.56, fh2 * 0.92);   // a soft cinematic vignette
     vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(10,16,26,0.22)"); g.fillStyle = vg; g.fillRect(0, 0, fw2, fh2);
     if (mood.rain) { g.strokeStyle = "rgba(206,220,230,0.4)"; g.lineWidth = 1;     // slanting rain on overcast days
-      for (let k = 0; k < 90; k++) { const rx = (k * 137 + now * 0.55) % (fw2 + 30) - 15, ry = (k * 83 + now * 1.1) % (fh2 + 20); g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx - 4, ry + 13); g.stroke(); } }
+      for (let k = 0; k < 90; k++) { const rx = (k * 137 + now * 0.55) % (fw2 + 30) - 15, ry = (k * 83 + now * 1.1) % (fh2 + 20); g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx - 4, ry + 13); g.stroke(); }
+      for (let k = 0; k < 30; k++) { const cyc = (now / 640 + k * 0.33) % 1, sx = (k * 89.3 + 20) % fw2, sy = horizon + 34 + ((k * 113.7) % Math.max(20, fh2 - horizon - 44)), rr = cyc * (5 + (k % 4)) * fcam.s;   // splashes bursting where it strikes the ground
+        g.strokeStyle = `rgba(214,228,238,${(1 - cyc) * 0.5})`; g.beginPath(); g.ellipse(sx, sy, rr, rr * 0.42, 0, 0, Math.PI * 2); g.stroke(); } }
     if (F.flash && now - F.flash < 160) { g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = `rgba(255,238,205,${(1 - (now - F.flash) / 160) * 0.17})`; g.fillRect(0, 0, fw2, fh2); g.restore(); }   // the flash of a big blast
   }
 
