@@ -4767,6 +4767,14 @@
         } else { const r0 = isoPt(ax, ay, 0.4), r1 = isoPt(bx, by, 0.4); g.beginPath(); g.moveTo(r0[0], r0[1]); g.lineTo(r1[0], r1[1]); g.stroke(); }
       }
       floodlight(g, -G0 + 0.25, -G0 + 0.25, now); floodlight(g, G0 - 0.25, -G0 + 0.25, now);
+      { const fgx = -G0 + 1.15, fgy = -G0 + 0.45, ph = now / 150, base = isoPt(fgx, fgy, 0), top = isoPt(fgx, fgy, 2.3);   // a national flag flying over the compound
+        softShadow(g, fgx - 0.1, fgy, 0.3, 0.3);
+        g.strokeStyle = "#cbd0d5"; g.lineWidth = lw2() * 1.4; g.lineCap = "round"; g.beginPath(); g.moveTo(base[0], base[1]); g.lineTo(top[0], top[1]); g.stroke(); g.lineCap = "butt";
+        g.fillStyle = "#e8c34a"; g.beginPath(); g.arc(top[0], top[1], 2.1 * fcam.s, 0, Math.PI * 2); g.fill();
+        const fw = 26 * fcam.s, fh = 15 * fcam.s, tp = [], bt = []; for (let u = 0; u <= 1.001; u += 0.2) { const dx = top[0] + u * fw, wob = Math.sin(ph + u * 5) * 3 * u * fcam.s; tp.push([dx, top[1] + 2 + wob]); bt.push([dx, top[1] + 2 + fh + wob]); }
+        g.beginPath(); g.moveTo(tp[0][0], tp[0][1]); for (const p of tp) g.lineTo(p[0], p[1]); for (let i = bt.length - 1; i >= 0; i--) g.lineTo(bt[i][0], bt[i][1]); g.closePath(); g.fillStyle = "#c0433f"; g.fill();
+        g.save(); g.clip(); g.fillStyle = "#eef1f4"; g.fillRect(top[0], top[1] + 2 + fh * 0.38, fw + 8, fh * 0.24); g.restore();   // a pale stripe across the flag
+        g.strokeStyle = OUT; g.lineWidth = lw2() * 0.9; g.beginPath(); g.moveTo(tp[0][0], tp[0][1]); for (const p of tp) g.lineTo(p[0], p[1]); for (let i = bt.length - 1; i >= 0; i--) g.lineTo(bt[i][0], bt[i][1]); g.closePath(); g.stroke(); }
     }
     if (water) for (const s of sc.s) {                                           // shimmering reflections cast down onto the water
       if (s.dead || s.collapsing) continue;
