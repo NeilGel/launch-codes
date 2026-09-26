@@ -4467,22 +4467,30 @@
     if (t >= 1) s.dead = true;
   }
 
+  // Each site keeps its own weather/time-of-day, picked from its position — clear, golden hour or overcast.
+  const FAC_MOODS = [
+    { sky: ["#74bdf4", "#d6ecff"], sun: "255,247,222", sunA: 0.85, sunX: 0.8, sunY: 0.36, tint: null },
+    { sky: ["#74bdf4", "#d6ecff"], sun: "255,247,222", sunA: 0.85, sunX: 0.8, sunY: 0.36, tint: null },
+    { sky: ["#f0b26a", "#ffe6c2"], sun: "255,224,168", sunA: 0.95, sunX: 0.82, sunY: 0.52, tint: "rgba(255,186,110,0.12)" },
+    { sky: ["#9aa8b4", "#ccd5dd"], sun: "236,239,241", sunA: 0.35, sunX: 0.7, sunY: 0.3, tint: "rgba(150,162,172,0.14)" },
+  ];
   function drawFacility(now) {
     const F = ui.facility; if (!F || !fw2) return;
     const g = fx2;
     g.setTransform(fdpr, 0, 0, fdpr, 0, 0);
     g.clearRect(0, 0, fw2, fh2);
     const sc = F.scene, gc = FGROUND[sc.ground] || FGROUND.grass, water = sc.ground === "water";
+    const mood = FAC_MOODS[(F.i * 3 + F.k) % FAC_MOODS.length];
     const horizon = fh2 * 0.30; facHorizon = horizon;
     // ---- Sky ----
     const sky = g.createLinearGradient(0, 0, 0, horizon + 60);
-    sky.addColorStop(0, "#74bdf4"); sky.addColorStop(1, "#d6ecff");
+    sky.addColorStop(0, mood.sky[0]); sky.addColorStop(1, mood.sky[1]);
     g.fillStyle = sky; g.fillRect(0, 0, fw2, horizon + 60);
-    const sunX = fw2 * 0.8, sunY = horizon * 0.36;                                // a warm sun with a soft halo
+    const sunX = fw2 * mood.sunX, sunY = horizon * mood.sunY;                     // the sun, placed and coloured by the mood
     g.save(); g.globalCompositeOperation = "lighter";
-    const sg = g.createRadialGradient(sunX, sunY, 4, sunX, sunY, 130); sg.addColorStop(0, "rgba(255,247,222,0.85)"); sg.addColorStop(1, "rgba(255,247,222,0)");
+    const sg = g.createRadialGradient(sunX, sunY, 4, sunX, sunY, 130); sg.addColorStop(0, `rgba(${mood.sun},${mood.sunA})`); sg.addColorStop(1, `rgba(${mood.sun},0)`);
     g.fillStyle = sg; g.beginPath(); g.arc(sunX, sunY, 130, 0, Math.PI * 2); g.fill();
-    g.fillStyle = "rgba(255,251,238,0.95)"; g.beginPath(); g.arc(sunX, sunY, 20, 0, Math.PI * 2); g.fill(); g.restore();
+    g.fillStyle = `rgba(${mood.sun},${Math.min(1, mood.sunA + 0.1)})`; g.beginPath(); g.arc(sunX, sunY, 20, 0, Math.PI * 2); g.fill(); g.restore();
     g.fillStyle = "#ffffffd0";
     for (let k = 0; k < 4; k++) { const cx = ((k * 0.31 + 0.1) * fw2 + now / 90 % (fw2 + 160)) % (fw2 + 160) - 80, cy = horizon * (0.22 + k * 0.17); g.beginPath(); g.ellipse(cx, cy, 38, 15, 0, 0, Math.PI * 2); g.ellipse(cx + 28, cy + 5, 26, 11, 0, 0, Math.PI * 2); g.ellipse(cx - 26, cy + 6, 22, 10, 0, 0, Math.PI * 2); g.fill(); }
     g.strokeStyle = "rgba(38,58,78,0.5)"; g.lineWidth = 1.4;                        // a few birds drifting past
@@ -4554,6 +4562,7 @@
     for (const s of order) s.unit ? drawAttacker(g, s, now) : s.patrol ? drawPatrol(g, s, now) : s.gate ? drawGatehouse(g, s, now) : s.prop ? drawProp(g, s, now) : drawStruct(g, s, now);
     drawFacFx(g, F, now);
     g.restore();
+    if (mood.tint) { g.fillStyle = mood.tint; g.fillRect(0, 0, fw2, fh2); }        // a wash of the day's light over the whole scene
   }
 
   function drawStruct(g, s, now) {
