@@ -4758,6 +4758,9 @@
       const cx = s.gx + (s.w || 1) / 2, cy = s.gy + (s.d || 1) / 2, base = isoPt(cx, cy, 0), top = isoPt(cx, cy, s.h || 1);
       const H = Math.max(6, base[1] - top[1]), wpx = Math.max(7, (s.w || 1) * fcam.tw * fcam.s * 0.55), n = parseInt((s.color || "#8894a0").slice(1), 16), rgb = `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
       for (let yy = 2; yy < H * 0.68; yy += 3) { const a = (1 - yy / (H * 0.68)) * 0.32, wob = Math.sin(now / 480 + yy * 0.25 + cx * 3) * (1.4 + yy * 0.045); g.fillStyle = `rgba(${rgb},${a})`; g.fillRect(base[0] - wpx / 2 + wob, base[1] + yy, wpx, 2.6); }
+      if (facNight && ((s.opts && s.opts.win) || s.shape === "ship" || s.shape === "containership" || s.shape === "lighthouse")) { g.save(); g.globalCompositeOperation = "lighter";   // warm deck/cabin lights spilling onto the water
+        for (let yy = 2; yy < H * 0.5; yy += 4) { const a = (1 - yy / (H * 0.5)) * 0.2, wob = Math.sin(now / 430 + yy * 0.3 + cx * 4) * (2 + yy * 0.05); g.fillStyle = `rgba(255,222,150,${a})`; g.fillRect(base[0] - wpx / 3 + wob, base[1] + yy, wpx * 0.66, 2.4); }
+        g.restore(); }
     }
     // ---- Everything on the land — far trees, buildings, decor, a patrol jeep and your attackers — painted back to front ----
     const extra = [];
