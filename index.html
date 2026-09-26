@@ -4574,6 +4574,14 @@
     const depth = s => s.gx + s.gy + (s.unit ? 0.3 : 0) - (s.dead && !s.collapsing ? 9 : 0);
     const order = [...sc.s, ...sc.decor, ...sc.land.trees, ...extra, ...sc.attackers].sort((a, b) => depth(a) - depth(b));
     for (const s of order) s.unit ? drawAttacker(g, s, now) : s.patrol ? drawPatrol(g, s, now) : s.gate ? drawGatehouse(g, s, now) : s.prop ? drawProp(g, s, now) : drawStruct(g, s, now);
+    if (["sam", "base", "hq"].includes(sc.type) && !F.done) {                     // defensive AA tracer fire streaking into the sky
+      const o = isoPt(0, -0.3, 0.6); g.save(); g.globalCompositeOperation = "lighter";
+      for (let b = 0; b < 4; b++) { const ph = ((now / 1300 + b * 0.27) % 1); if (ph > 0.9) continue;
+        const ang = -Math.PI / 2 + (b - 1.5) * 0.22 + Math.sin(now / 900 + b) * 0.05, sp = ph * 240 * fcam.s, hx = o[0] + Math.cos(ang) * sp, hy = o[1] + Math.sin(ang) * sp * 1.15;
+        g.strokeStyle = `rgba(255,214,110,${(1 - ph) * 0.9})`; g.lineWidth = 2.2 * fcam.s; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx - Math.cos(ang) * 15 * fcam.s, hy - Math.sin(ang) * 15 * fcam.s * 1.15); g.stroke();
+        g.fillStyle = `rgba(255,240,190,${1 - ph})`; g.beginPath(); g.arc(hx, hy, 2 * fcam.s, 0, Math.PI * 2); g.fill(); }
+      g.restore();
+    }
     drawFacFx(g, F, now);
     g.restore();
     if (mood.tint) { g.fillStyle = mood.tint; g.fillRect(0, 0, fw2, fh2); }        // a wash of the day's light over the whole scene
