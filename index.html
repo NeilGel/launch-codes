@@ -4087,6 +4087,8 @@
   }
   function drawContainerShip(g, s, now) {                                                           // a laden container ship at the quay
     const w = s.w, d = s.d, hullH = (s.h || 1) * 0.5, col = s.color;
+    waterlineFoam(g, s.gx + w / 2, s.gy + d / 2, w, d, now);                                         // the sea lapping at the hull
+    g.save(); g.translate(0, Math.sin(now / 900 + s.gx) * 1.2 * fcam.s);                             // ride the swell
     cuboid(g, s.gx, s.gy, w, d, hullH, col);
     const p1 = isoPt(s.gx + w, s.gy, hullH), p2 = isoPt(s.gx + w, s.gy + d, hullH), p3 = isoPt(s.gx + w + 0.7, s.gy + d / 2, hullH), b1 = isoPt(s.gx + w, s.gy, 0), b3 = isoPt(s.gx + w + 0.7, s.gy + d / 2, 0);
     poly(g, [b1, b3, p3, p1], shade(col, 0.7), OUT, lw2()); poly(g, [p1, p3, p2], shade(col, 1.08), OUT, lw2());   // bow
@@ -4094,6 +4096,15 @@
     drawContainers(g, s.gx + w * 0.26, s.gy + 0.14, 4, rows, 2, hullH);                              // deck cargo
     cuboid(g, s.gx + 0.1, s.gy + 0.12, w * 0.16, d - 0.24, (s.h || 1) * 0.95, "#e8ecef", { z: hullH, win: "#bfe6ff" });   // bridge
     cylinder(g, s.gx + w * 0.12, s.gy + d * 0.5, 0.1, (s.h || 1) * 0.4, "#41474e", { z: hullH + (s.h || 1) * 0.95 });     // funnel
+    const mast = isoPt(s.gx + w * 0.16, s.gy + d * 0.5, hullH + (s.h || 1) * 0.95), na = facNight ? 1 : 0.55; g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,255,255," + (facNight ? 0.95 : 0.6) + ")"; g.beginPath(); g.arc(mast[0], mast[1] - 3 * fcam.s, 1.8 * fcam.s, 0, Math.PI * 2); g.fill();   // masthead + nav lights
+    const pl = isoPt(s.gx, s.gy, hullH), sl = isoPt(s.gx, s.gy + d, hullH); g.fillStyle = "rgba(255,60,60," + na + ")"; g.beginPath(); g.arc(pl[0], pl[1], 1.6 * fcam.s, 0, Math.PI * 2); g.fill(); g.fillStyle = "rgba(60,255,120," + na + ")"; g.beginPath(); g.arc(sl[0], sl[1], 1.6 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
+    g.restore();
+  }
+  function waterlineFoam(g, cx, cy, w, d, now) {                                                     // a soft foam collar where a hull meets the sea
+    const c = isoPt(cx, cy, 0), rw = (Math.max(w, d) * 0.6 + 0.55) * fcam.tw * fcam.s, rh = (Math.min(w, d) * 0.5 + 0.4) * fcam.th * fcam.s;
+    g.save(); g.globalAlpha = 0.5 + Math.sin(now / 700 + cx) * 0.12; g.strokeStyle = "rgba(255,255,255,0.85)"; g.lineWidth = 2 * fcam.s;
+    g.beginPath(); g.ellipse(c[0], c[1] + 2 * fcam.s, rw, rh, 0, 0, Math.PI * 2); g.stroke();
+    g.globalAlpha = 0.22; g.fillStyle = "#cfeeff"; g.beginPath(); g.ellipse(c[0], c[1] + 2 * fcam.s, rw * 0.94, rh * 0.9, 0, 0, Math.PI * 2); g.fill(); g.restore();
   }
   function drawCraneFac(g, s, now) {                                                                // an animated tower crane: swinging jib, bobbing load
     const cx = s.gx + s.w / 2, cy = s.gy + s.d / 2, H = s.h, col = s.color, ang = Math.sin(now / 2600) * 0.6;
@@ -4151,14 +4162,20 @@
     for (let i = 0; i <= mseg; i++) { const a = i / mseg * Math.PI * 2; nb.push(isoPt(gx + Math.cos(a) * rad * 0.4, gy + Math.sin(a) * rad * 0.4, h - 0.2 + 0.5)); }
     for (let i = 0; i < mseg; i++) poly(g, [nb[i], nb[i + 1], apex], shade("#d94b3a", i < mseg / 2 ? 1.05 : 0.78), OUT, lw2());   // nose cone
   }
-  function drawLighthouse(g, gx, gy, h, now) {                                                       // a striped tower with a sweeping beam
-    cylinder(g, gx, gy, 0.32, h, "#f4f4f4", { taper: 0.66 });
-    g.strokeStyle = "#c94b4b"; g.lineWidth = lw2() * 3;
-    for (let b = 1; b <= 3; b++) { const z = h * b / 4, r = 0.32 * (1 - 0.34 * b / 4); g.beginPath(); for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI * 2, p = isoPt(gx + Math.cos(a) * r, gy + Math.sin(a) * r, z); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.stroke(); }
-    cylinder(g, gx, gy, 0.24, 0.34, "#39414a", { z: h });                                           // lantern room
-    const lp = isoPt(gx, gy, h + 0.18); g.save(); g.globalCompositeOperation = "lighter";
-    const beamA = now / 850; g.fillStyle = "rgba(255,244,190,0.22)"; g.beginPath(); g.moveTo(lp[0], lp[1]); g.lineTo(lp[0] + Math.cos(beamA) * 130, lp[1] + Math.sin(beamA) * 65); g.lineTo(lp[0] + Math.cos(beamA + 0.32) * 130, lp[1] + Math.sin(beamA + 0.32) * 65); g.closePath(); g.fill();
-    g.fillStyle = "rgba(255,242,180,0.95)"; g.beginPath(); g.arc(lp[0], lp[1], 4.5 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
+  function drawLighthouse(g, gx, gy, h, now) {                                                       // a red-and-white banded tower with a sweeping beam
+    const segs = 7, R = u => 0.34 * (1 - 0.42 * u);                                                 // gently tapering trunk
+    for (let b = 0; b < segs; b++) { const u0 = b / segs, u1 = (b + 1) / segs, r0 = R(u0);
+      cylinder(g, gx, gy, r0, h / segs + 0.015, b % 2 ? "#d6473f" : "#f4f4f4", { z: h * u0, taper: R(u1) / r0 }); }   // alternating bands, coned to the top
+    const rt = R(1);
+    cylinder(g, gx, gy, rt + 0.07, 0.1, "#4a525b", { z: h });                                        // gallery deck ring
+    cylinder(g, gx, gy, rt + 0.02, 0.32, "#2b3138", { z: h + 0.1 });                                 // glazed lantern room
+    cylinder(g, gx, gy, rt + 0.06, 0.12, "#c94b4b", { z: h + 0.42, taper: 0.2 });                    // domed cap
+    const lp = isoPt(gx, gy, h + 0.26); g.save(); g.globalCompositeOperation = "lighter";
+    const beamA = now / 850, reach = facNight ? 170 : 120, ba = facNight ? 0.3 : 0.16;               // the beam sweeps wider and brighter at night
+    for (const dir of [0, Math.PI]) { const a = beamA + dir; g.fillStyle = `rgba(255,244,190,${ba})`; g.beginPath(); g.moveTo(lp[0], lp[1]); g.lineTo(lp[0] + Math.cos(a) * reach, lp[1] + Math.sin(a) * reach * 0.5); g.lineTo(lp[0] + Math.cos(a + 0.3) * reach, lp[1] + Math.sin(a + 0.3) * reach * 0.5); g.closePath(); g.fill(); }
+    const halo = g.createRadialGradient(lp[0], lp[1], 1, lp[0], lp[1], (facNight ? 16 : 9) * fcam.s); halo.addColorStop(0, "rgba(255,244,190,0.95)"); halo.addColorStop(1, "rgba(255,244,190,0)");
+    g.fillStyle = halo; g.beginPath(); g.arc(lp[0], lp[1], (facNight ? 16 : 9) * fcam.s, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "rgba(255,248,210,0.98)"; g.beginPath(); g.arc(lp[0], lp[1], 3.2 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();
   }
   function floodlight(g, gx, gy, now) {                                                             // a perimeter light mast with a bank of lamps
     const h = 3.0, base = isoPt(gx, gy, 0), top = isoPt(gx, gy, h);
@@ -4796,12 +4813,16 @@
         for (const wx of [s.gx + 0.18, s.gx + w * 0.55, s.gx + w - 0.2]) for (const wy of [s.gy + 0.02, s.gy + d - 0.02]) { const wp = isoPt(wx, wy, 0.06); g.beginPath(); g.ellipse(wp[0], wp[1], 3.6 * fcam.s, 2.6 * fcam.s, 0, 0, Math.PI * 2); g.fill(); g.stroke(); } } break;
       case "plane": drawJet(g, s.gx, s.gy, s.w, s.d, col); break;
       case "ship": { const hw = s.w, hd = s.d, hullH = h * 0.5;
+        waterlineFoam(g, s.gx + hw / 2, s.gy + hd / 2, hw, hd, now);                                // the sea lapping at the hull
+        g.save(); g.translate(0, Math.sin(now / 820 + s.gy) * 1.1 * fcam.s);                        // ride the swell
         cuboid(g, s.gx, s.gy, hw, hd, hullH, col);                                                // hull
         const p1 = isoPt(s.gx + hw, s.gy, hullH), p2 = isoPt(s.gx + hw, s.gy + hd, hullH), p3 = isoPt(s.gx + hw + 0.55, s.gy + hd / 2, hullH), b1 = isoPt(s.gx + hw, s.gy, 0), b3 = isoPt(s.gx + hw + 0.55, s.gy + hd / 2, 0);
         poly(g, [b1, b3, p3, p1], shade(col, 0.7), OUT, lw2()); poly(g, [p1, p3, p2], shade(col, 1.08), OUT, lw2());   // pointed bow
         cuboid(g, s.gx + hw * 0.22, s.gy + 0.12, hw * 0.34, hd - 0.24, h * 0.75, shade(col, 1.16), { z: hullH, win: "#bfe6ff", broken });   // bridge superstructure
         cylinder(g, s.gx + hw * 0.15, s.gy + hd * 0.5, 0.12, h * 0.42, "#41474e", { z: hullH });   // funnel
-        const mb = isoPt(s.gx + hw * 0.6, s.gy + hd / 2, hullH), mt = isoPt(s.gx + hw * 0.6, s.gy + hd / 2, h * 1.5); g.strokeStyle = OUT; g.lineWidth = lw2() * 1.2; g.beginPath(); g.moveTo(mb[0], mb[1]); g.lineTo(mt[0], mt[1]); g.stroke(); beacon(g, mt[0], mt[1], now, (s.gx * 7) | 0); } break;
+        const mb = isoPt(s.gx + hw * 0.6, s.gy + hd / 2, hullH), mt = isoPt(s.gx + hw * 0.6, s.gy + hd / 2, h * 1.5); g.strokeStyle = OUT; g.lineWidth = lw2() * 1.2; g.beginPath(); g.moveTo(mb[0], mb[1]); g.lineTo(mt[0], mt[1]); g.stroke(); beacon(g, mt[0], mt[1], now, (s.gx * 7) | 0);
+        const pl = isoPt(s.gx, s.gy, hullH), sl = isoPt(s.gx, s.gy + hd, hullH); g.save(); g.globalCompositeOperation = "lighter"; const na = facNight ? 1 : 0.55; g.fillStyle = "rgba(255,60,60," + na + ")"; g.beginPath(); g.arc(pl[0], pl[1], 1.5 * fcam.s, 0, Math.PI * 2); g.fill(); g.fillStyle = "rgba(60,255,120," + na + ")"; g.beginPath(); g.arc(sl[0], sl[1], 1.5 * fcam.s, 0, Math.PI * 2); g.fill(); g.restore();   // port/starboard nav lights
+        g.restore(); } break;
       case "span": { const y = s.gy; cuboid(g, s.gx, y, s.w, s.d, s.h, col); const a = isoPt(s.gx + 1.4, y + s.d / 2, s.h + 2.6), b = isoPt(s.gx + s.w - 1.4, y + s.d / 2, s.h + 2.6); g.strokeStyle = "#d64b63"; g.lineWidth = lw2() * 1.3; for (let q = 0; q <= 10; q++) { const p = isoPt(s.gx + 0.5 + q / 10 * (s.w - 1), y + s.d / 2, s.h); const anc = q < 5 ? a : b; g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(anc[0], anc[1]); g.stroke(); } } break;
       case "deck": bridgeDeck(g, s, now); break;
       case "brpylon": bridgePylon(g, s, now); break;
