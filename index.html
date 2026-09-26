@@ -4684,7 +4684,12 @@
       } else {
         g.save(); g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,177,90,0.5)"; g.lineWidth = 3 * fcam.s;   // a glowing tracer trail
         g.beginPath(); g.moveTo(x, y); g.lineTo(px, py); g.stroke(); g.restore();
-        g.fillStyle = "#20303f"; g.beginPath(); g.arc(x, y, 4 * fcam.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = OUT; g.lineWidth = 1; g.stroke();
+        const ang = Math.atan2(y - py, x - px), L2 = 6.5 * fcam.s, W2 = 2.6 * fcam.s;   // a finned shell pointing along its arc
+        g.save(); g.translate(x, y); g.rotate(ang);
+        g.fillStyle = "#2b3540"; g.strokeStyle = OUT; g.lineWidth = 1; g.beginPath(); g.moveTo(-L2, -W2 * 0.7); g.lineTo(-L2 - 3.5 * fcam.s, -3.4 * fcam.s); g.lineTo(-L2 - 3.5 * fcam.s, 3.4 * fcam.s); g.lineTo(-L2, W2 * 0.7); g.closePath(); g.fill(); g.stroke();   // tail fins
+        g.fillStyle = "#3a4653"; g.beginPath(); g.moveTo(L2, 0); g.quadraticCurveTo(0, -W2, -L2, -W2 * 0.7); g.lineTo(-L2, W2 * 0.7); g.quadraticCurveTo(0, W2, L2, 0); g.closePath(); g.fill(); g.stroke();   // body
+        g.fillStyle = "rgba(255,255,255,0.5)"; g.beginPath(); g.ellipse(L2 * 0.2, -W2 * 0.35, L2 * 0.4, W2 * 0.28, 0, 0, Math.PI * 2); g.fill();   // highlight
+        g.restore();
       }
       return true;
     });
