@@ -3932,17 +3932,25 @@
   }
 
   // ---- A launch vehicle: white stage body, a red nose cone, tail fins and a wisp of vapour ----
-  function drawRocket(g, gx, gy, rad, h, col, now) {
+  function drawRocket(g, gx, gy, rad, h, col, now, lift = 0, firing = false) {
+    const z0 = lift, seg = 14;
+    if (firing) {                                                                  // a roaring exhaust plume down to the pad, and billowing smoke
+      g.save(); g.globalCompositeOperation = "lighter";
+      const noz = isoPt(gx, gy, z0);
+      for (let k = 0; k < 3; k++) { const flick = 0.8 + Math.sin(now / 40 + k) * 0.2, len = (26 + lift * 8) * flick, fg = g.createLinearGradient(noz[0], noz[1], noz[0], noz[1] + len * fcam.s); fg.addColorStop(0, `rgba(255,252,230,${0.95 - k * 0.2})`); fg.addColorStop(0.5, `rgba(255,168,58,${0.7 - k * 0.2})`); fg.addColorStop(1, "rgba(220,60,20,0)"); g.fillStyle = fg;
+        g.beginPath(); g.moveTo(noz[0] - (5 - k) * fcam.s, noz[1]); g.lineTo(noz[0] + (5 - k) * fcam.s, noz[1]); g.lineTo(noz[0] + (2 - k) * fcam.s, noz[1] + len * fcam.s); g.lineTo(noz[0] - (2 - k) * fcam.s, noz[1] + len * fcam.s); g.closePath(); g.fill(); }
+      g.restore();
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, t = ((now / 380 + k * 0.13) % 1), b0 = isoPt(gx + Math.cos(a) * (rad + t * 2.6), gy + Math.sin(a) * (rad + t * 2.6), 0.02), s2 = (10 + t * 34) * fcam.s; g.fillStyle = `rgba(238,242,246,${(1 - t) * 0.6})`; g.beginPath(); g.arc(b0[0], b0[1] - t * 8 * fcam.s, s2, 0, Math.PI * 2); g.fill(); }
+    }
     for (let f = 0; f < 3; f++) { const a = f / 3 * Math.PI * 2 + 0.6, bx = gx + Math.cos(a) * rad * 0.75, by = gy + Math.sin(a) * rad * 0.75;   // tail fins
-      poly(g, [isoPt(bx, by, 0), isoPt(bx + Math.cos(a) * rad, by + Math.sin(a) * rad, 0), isoPt(bx, by, h * 0.26)], shade(col, 0.7), OUT, lw2()); }
-    cylinder(g, gx, gy, rad, h * 0.78, col);                                        // stage body
-    const bandZ = h * 0.5, seg = 14, ring = [];                                     // a dark band round the middle
-    g.strokeStyle = shade(col, 0.5); g.lineWidth = lw2() * 1.4; g.beginPath();
-    for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2, p = isoPt(gx + Math.cos(a) * rad, gy + Math.sin(a) * rad, bandZ); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.stroke();
-    const base = [], apex = isoPt(gx, gy, h + rad * 1.7);                            // nose cone
-    for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2; base.push(isoPt(gx + Math.cos(a) * rad * 0.96, gy + Math.sin(a) * rad * 0.96, h * 0.78)); }
+      poly(g, [isoPt(bx, by, z0), isoPt(bx + Math.cos(a) * rad, by + Math.sin(a) * rad, z0), isoPt(bx, by, z0 + h * 0.26)], shade(col, 0.7), OUT, lw2()); }
+    cylinder(g, gx, gy, rad, h * 0.78, col, { z: z0 });                             // stage body
+    g.strokeStyle = shade(col, 0.5); g.lineWidth = lw2() * 1.4; g.beginPath();      // dark band
+    for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2, p = isoPt(gx + Math.cos(a) * rad, gy + Math.sin(a) * rad, z0 + h * 0.5); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.stroke();
+    const base = [], apex = isoPt(gx, gy, z0 + h + rad * 1.7);                      // nose cone
+    for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2; base.push(isoPt(gx + Math.cos(a) * rad * 0.96, gy + Math.sin(a) * rad * 0.96, z0 + h * 0.78)); }
     for (let i = 0; i < seg; i++) poly(g, [base[i], base[i + 1], apex], shade("#d94b3a", i < seg / 2 ? 1.06 : 0.78), OUT, lw2());
-    if (now) for (let k = 0; k < 5; k++) {                                          // billowing venting/exhaust clouds rolling off the pad
+    if (!firing && now) for (let k = 0; k < 5; k++) {                               // idle venting rolling off the pad
       const a = k / 5 * Math.PI * 2, t = ((now / 640 + k * 0.2 + (gx * 7 % 5) / 5) % 1), b0 = isoPt(gx + Math.cos(a) * (rad + t * 1.6), gy + Math.sin(a) * (rad + t * 1.6), 0.02);
       const s2 = (7 + t * 22) * fcam.s; g.fillStyle = `rgba(244,247,250,${(1 - t) * 0.5})`; g.beginPath(); g.arc(b0[0], b0[1] - t * 6 * fcam.s, s2, 0, Math.PI * 2); g.fill();
     }
@@ -4708,7 +4716,7 @@
         g.fillStyle = "#e0b83a"; g.beginPath(); g.arc(0, 0, R * 0.56, 0, Math.PI * 2); g.fill();                                                       // yellow hazard hatch
         g.strokeStyle = "#20242a"; g.lineWidth = lw2(); g.beginPath(); g.arc(0, 0, R * 0.56, 0, Math.PI * 2); g.moveTo(-R * 0.56, 0); g.lineTo(R * 0.56, 0); g.moveTo(0, -R * 0.56); g.lineTo(0, R * 0.56); g.stroke();
         g.restore(); } break;
-      case "rocket": drawRocket(g, s.gx, s.gy, s.w, h, col, now); break;
+      case "rocket": { const cyc = (now % 24000) / 24000, firing = cyc > 0.62, lift = cyc < 0.7 ? 0 : Math.pow((cyc - 0.7) / 0.3, 2.2) * 16; drawRocket(g, s.gx, s.gy, s.w, h, col, now, lift, firing); } break;
       case "cyl": case "chimney": cylinder(g, s.gx, s.gy, s.w, h, col); break;
       case "cool": turbine(g, s.gx, s.gy, s.w, col); break;
       case "dish": dish(g, s.gx, s.gy, s.w, s.d, col, now); break;
