@@ -4053,6 +4053,18 @@
     cuboid(g, s.gx + 0.1, s.gy + 0.12, w * 0.16, d - 0.24, (s.h || 1) * 0.95, "#e8ecef", { z: hullH, win: "#bfe6ff" });   // bridge
     cylinder(g, s.gx + w * 0.12, s.gy + d * 0.5, 0.1, (s.h || 1) * 0.4, "#41474e", { z: hullH + (s.h || 1) * 0.95 });     // funnel
   }
+  function drawCraneFac(g, s, now) {                                                                // an animated tower crane: swinging jib, bobbing load
+    const cx = s.gx + s.w / 2, cy = s.gy + s.d / 2, H = s.h, col = s.color, ang = Math.sin(now / 2600) * 0.6;
+    lattice(g, s.gx, s.gy, s.w, s.d, H, col);
+    const top = isoPt(cx, cy, H), jibEnd = isoPt(cx + Math.cos(ang) * 2.6, cy + Math.sin(ang) * 2.6, H), tailEnd = isoPt(cx - Math.cos(ang) * 0.9, cy - Math.sin(ang) * 0.9, H);
+    g.strokeStyle = col; g.lineWidth = lw2() * 1.7; g.beginPath(); g.moveTo(tailEnd[0], tailEnd[1]); g.lineTo(jibEnd[0], jibEnd[1]); g.stroke();
+    const apex = isoPt(cx, cy, H + 0.7); g.lineWidth = lw2(); g.beginPath(); g.moveTo(apex[0], apex[1]); g.lineTo(jibEnd[0], jibEnd[1]); g.moveTo(apex[0], apex[1]); g.lineTo(tailEnd[0], tailEnd[1]); g.stroke();   // apex tie-bars
+    cuboid(g, cx - Math.cos(ang) * 0.9 - 0.12, cy - Math.sin(ang) * 0.9 - 0.12, 0.24, 0.24, 0.2, shade(col, 0.7), { z: H - 0.1 });   // counterweight
+    const hookX = cx + Math.cos(ang) * 1.9, hookY = cy + Math.sin(ang) * 1.9, loadZ = 0.35 + (Math.sin(now / 1700) + 1) / 2 * 1.4, ht = isoPt(hookX, hookY, H), hb = isoPt(hookX, hookY, loadZ);
+    g.strokeStyle = "#3a4048"; g.lineWidth = 1; g.beginPath(); g.moveTo(ht[0], ht[1]); g.lineTo(hb[0], hb[1]); g.stroke();
+    cuboid(g, hookX - 0.3, hookY - 0.18, 0.6, 0.36, 0.3, "#c94b4b", { z: loadZ - 0.3 });             // the hanging load
+    beacon(g, top[0], top[1], now, (cx * 7) | 0);
+  }
   function drawHelipad(g, gx, gy, rad) {
     const c = isoPt(gx, gy, 0.02), R = rad * fcam.tw * fcam.s;
     g.save(); g.translate(c[0], c[1]); g.scale(1, 0.5);
@@ -4704,6 +4716,7 @@
       case "switchyard": drawSwitchyard(g, s); break;
       case "containers": drawContainers(g, s.gx, s.gy, s.w, s.d, s.h); break;
       case "containership": drawContainerShip(g, s, now); break;
+      case "crane": drawCraneFac(g, s, now); break;
       case "radome": drawRadome(g, s.gx, s.gy, s.w, h, col); break;
       case "helipad": drawHelipad(g, s.gx, s.gy, s.w); break;
       case "tent": drawTent(g, s.gx, s.gy, s.w, s.d, h, col); break;
