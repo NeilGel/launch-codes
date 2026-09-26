@@ -4700,6 +4700,10 @@
     g.save(); g.translate(shx, shy);
     g.save(); g.beginPath(); g.rect(-40, horizon - 6, fw2 + 80, fh2); g.clip();
     if (water) {                                                                 // a living sea: rolling swell crests plus twinkling sun-glints
+      { const t = (now % 96000) / 96000, dx = -70 + t * (fw2 + 140), dy = horizon + 5 + Math.sin(now / 1400) * 1.2, col = mood.night ? "rgba(18,26,42,0.85)" : "rgba(96,116,138,0.55)";   // a far-off ship sliding along the horizon
+        g.fillStyle = col; g.fillRect(dx, dy - 4, 36, 4); g.beginPath(); g.moveTo(dx + 36, dy - 4); g.lineTo(dx + 42, dy - 2); g.lineTo(dx + 36, dy); g.fill();   // hull + bow
+        g.fillRect(dx + 7, dy - 10, 6, 6); g.fillRect(dx + 18, dy - 8, 4, 4); g.fillRect(dx + 25, dy - 11, 2.4, 7);   // bridge, deckhouse, funnel/mast
+        if (mood.night) { g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,238,180,0.8)"; g.fillRect(dx + 8, dy - 8, 1.4, 1.4); g.fillRect(dx + 10, dy - 6, 1.4, 1.4); g.restore(); } }   // a couple of lit portholes
       for (let yy = horizon; yy < fh2; yy += 7) { const dep = (yy - horizon) / (fh2 - horizon);
         g.strokeStyle = `rgba(255,255,255,${0.05 + dep * 0.13})`; g.lineWidth = 1 + dep * 1.4;
         g.beginPath(); for (let xx = 0; xx <= fw2; xx += 22) { const wy = yy + Math.sin(now / 620 + xx * 0.03 + yy * 0.18) * (1 + dep * 3); xx ? g.lineTo(xx, wy) : g.moveTo(xx, wy); } g.stroke(); }
