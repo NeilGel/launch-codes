@@ -4156,6 +4156,13 @@
     g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(255,244,200,0.5)"; g.beginPath(); g.ellipse(bx, by, 14 * S2, 7 * S2, 0, 0, Math.PI * 2); g.fill(); g.restore();
     g.fillStyle = "#3a4048"; g.strokeStyle = OUT; g.lineWidth = 1; g.fillRect(bx - 9 * S2, by - 3 * S2, 18 * S2, 4.5 * S2); g.strokeRect(bx - 9 * S2, by - 3 * S2, 18 * S2, 4.5 * S2);
     g.fillStyle = "#fff4c8"; for (let k = 0; k < 4; k++) g.fillRect(bx - 8 * S2 + k * 4.5 * S2, by - 2 * S2, 3 * S2, 2.6 * S2);
+    if (facNight) {                                                                                // a cone of light thrown across the compound at night
+      const pool = isoPt(gx * 0.5, gy * 0.5, 0), src = isoPt(gx, gy, h - 0.1);
+      g.save(); g.globalCompositeOperation = "lighter";
+      g.fillStyle = "rgba(255,244,190,0.055)"; g.beginPath(); g.moveTo(src[0] - 8 * S2, src[1]); g.lineTo(pool[0] - 46 * S2, pool[1]); g.lineTo(pool[0] + 46 * S2, pool[1]); g.lineTo(src[0] + 8 * S2, src[1]); g.closePath(); g.fill();   // beam
+      const lg = g.createRadialGradient(pool[0], pool[1], 2, pool[0], pool[1], 92 * S2); lg.addColorStop(0, "rgba(255,244,190,0.16)"); lg.addColorStop(1, "rgba(255,244,190,0)");
+      g.fillStyle = lg; g.beginPath(); g.ellipse(pool[0], pool[1], 92 * S2, 44 * S2, 0, 0, Math.PI * 2); g.fill(); g.restore();   // ground pool
+    }
   }
   function drawFactoryHall(g, s, col) {
     const w = s.w, d = s.d, h = s.h, hurt = s.hp < s.max, n = 4;
