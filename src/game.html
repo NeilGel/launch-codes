@@ -4680,8 +4680,12 @@
     g.fillStyle = `rgba(${mood.sun},${Math.min(1, mood.sunA + 0.1)})`; g.beginPath(); g.arc(sunX, sunY, 20, 0, Math.PI * 2); g.fill(); g.restore();
     if (mood.tint && !mood.rain) { g.save(); g.globalCompositeOperation = "lighter"; g.translate(sunX, sunY);   // crepuscular rays fanning from the low golden sun
       for (let k = 0; k < 9; k++) { const a = Math.PI * (0.44 + k * 0.075) + Math.sin(now / 3400 + k) * 0.02, L = 380; g.fillStyle = `rgba(${mood.sun},0.045)`; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * L, Math.sin(a) * L); g.lineTo(Math.cos(a + 0.05) * L, Math.sin(a + 0.05) * L); g.closePath(); g.fill(); } g.restore(); }
-    g.fillStyle = mood.cloud;
-    for (let k = 0; k < 4; k++) { const cx = ((k * 0.31 + 0.1) * fw2 + now / 90 % (fw2 + 160)) % (fw2 + 160) - 80, cy = horizon * (0.22 + k * 0.17); g.beginPath(); g.ellipse(cx, cy, 38, 15, 0, 0, Math.PI * 2); g.ellipse(cx + 28, cy + 5, 26, 11, 0, 0, Math.PI * 2); g.ellipse(cx - 26, cy + 6, 22, 10, 0, 0, Math.PI * 2); g.fill(); }
+    { const drift = now / 90, puffs = [[-36, 6, 19], [-15, -2, 25], [8, -7, 27], [28, 1, 22], [45, 7, 16], [2, 9, 29]];   // fuller, softer clouds lit from above
+      for (let k = 0; k < 5; k++) { const spd = 0.55 + (k % 3) * 0.4, cx = (((k * 0.24 + 0.05) * fw2 + drift * spd) % (fw2 + 220)) - 110, cy = horizon * (0.15 + k * 0.135), sc = 0.78 + (k % 3) * 0.3;
+        if (!mood.night) { g.fillStyle = "rgba(120,140,166,0.22)"; for (const [dx, dy, r] of puffs) { g.beginPath(); g.ellipse(cx + dx * sc, cy + (dy + 6) * sc, r * sc, r * 0.48 * sc, 0, 0, Math.PI * 2); g.fill(); } }   // soft grey underside
+        g.fillStyle = mood.cloud; for (const [dx, dy, r] of puffs) { g.beginPath(); g.ellipse(cx + dx * sc, cy + dy * sc, r * sc, r * 0.55 * sc, 0, 0, Math.PI * 2); g.fill(); }   // body
+        if (!mood.night) { g.fillStyle = "rgba(255,255,255,0.4)"; for (const [dx, dy, r] of puffs) { g.beginPath(); g.ellipse(cx + dx * sc, cy + (dy - 4) * sc, r * 0.66 * sc, r * 0.36 * sc, 0, 0, Math.PI * 2); g.fill(); } } }   // sunlit crown
+    }
     g.strokeStyle = "rgba(38,58,78,0.5)"; g.lineWidth = 1.4;                        // a few birds drifting past
     for (let k = 0; k < 5; k++) { const bx = (now / 38 + k * 170) % (fw2 + 80) - 40, by = horizon * 0.28 + k * 13 + Math.sin(now / 520 + k) * 4, fl = 3.5 + Math.sin(now / 150 + k * 1.3) * 2.5; g.beginPath(); g.moveTo(bx - fl, by + 2); g.lineTo(bx, by - 2); g.lineTo(bx + fl, by + 2); g.stroke(); }
     if (!mood.rain) { const at = (now % 64000) / 64000, ax = fw2 + 40 - at * (fw2 + 90), ay = horizon * 0.15;   // an airliner high overhead
